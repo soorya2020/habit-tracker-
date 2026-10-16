@@ -47,4 +47,5 @@ flutter run
 
 ## Get an APK
 
-Every push to `main` runs `.github/workflows/android.yml`, which builds `app-release.apk`. You can download it from the workflow run's Artifacts. After Firebase is set up, add the `FIREBASE_APP_ID` and `FIREBASE_SERVICE_ACCOUNT` repository secrets. Each build then also goes to the `club` tester group in Firebase App Distribution.
+Every push to `main` runs `.github/workflows/android.yml`, which checks and tests the code, builds the APK and publishes it as a release. The newest one is always at
+https://github.com/soorya2020/habit-tracker-/releases/latest/download/one-percent-club.apk After Firebase is set up, add the `FIREBASE_APP_ID` and `FIREBASE_SERVICE_ACCOUNT` repository secrets. Each build then also goes to the `club` tester group in Firebase App Distribution.
