@@ -148,18 +148,86 @@ class _ShellState extends ConsumerState<_Shell> with WidgetsBindingObserver {
               label: const Text('Habit'),
             )
           : null,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: widget.shell.currentIndex,
-        onDestinationSelected: (i) {
+      bottomNavigationBar: _PillNav(
+        index: widget.shell.currentIndex,
+        onSelect: (i) {
           Haptics.select();
           widget.shell.goBranch(i, initialLocation: i == widget.shell.currentIndex);
         },
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.check_circle_outline), selectedIcon: Icon(Icons.check_circle), label: 'Today'),
-          NavigationDestination(icon: Icon(Icons.calendar_month_outlined), selectedIcon: Icon(Icons.calendar_month), label: 'Plan'),
-          NavigationDestination(icon: Icon(Icons.insights_outlined), selectedIcon: Icon(Icons.insights), label: 'Insights'),
-          NavigationDestination(icon: Icon(Icons.trending_up), label: 'Future'),
-        ],
+      ),
+    );
+  }
+}
+
+/// A dark pill floating at the bottom. The open tab is a light chip with its
+/// name; the others are icons.
+class _PillNav extends StatelessWidget {
+  const _PillNav({required this.index, required this.onSelect});
+  final int index;
+  final ValueChanged<int> onSelect;
+
+  static const _tabs = [
+    (Icons.check_circle_outline, Icons.check_circle, 'Today'),
+    (Icons.calendar_month_outlined, Icons.calendar_month, 'Plan'),
+    (Icons.insights_outlined, Icons.insights, 'Insights'),
+    (Icons.trending_up, Icons.trending_up, 'Future'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tk;
+    return SafeArea(
+      top: false,
+      minimum: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 6, 16, 4),
+        child: Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: t.ink,
+            borderRadius: BorderRadius.circular(32),
+            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: .22), blurRadius: 24, offset: const Offset(0, 10))],
+          ),
+          child: Row(children: [
+            for (var i = 0; i < _tabs.length; i++)
+              Expanded(
+                flex: i == index ? 5 : 3,
+                child: Semantics(
+                  selected: i == index,
+                  button: true,
+                  label: _tabs[i].$3,
+                  excludeSemantics: true,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => onSelect(i),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 260),
+                      curve: Curves.easeOutCubic,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: i == index ? t.screen : Colors.transparent,
+                        borderRadius: BorderRadius.circular(26),
+                      ),
+                      child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                        Icon(i == index ? _tabs[i].$2 : _tabs[i].$1,
+                            size: i == index ? 20 : 22, color: i == index ? t.ink : t.screen.withValues(alpha: .55)),
+                        if (i == index) ...[
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(_tabs[i].$3,
+                                maxLines: 1,
+                                overflow: TextOverflow.fade,
+                                softWrap: false,
+                                style: TextStyle(color: t.ink, fontWeight: FontWeight.w600, fontSize: 14)),
+                          ),
+                        ],
+                      ]),
+                    ),
+                  ),
+                ),
+              ),
+          ]),
+        ),
       ),
     );
   }
