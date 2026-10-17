@@ -5,9 +5,9 @@ import 'package:flutter/material.dart';
 import '../domain/models.dart';
 import '../ui/theme.dart';
 
-/// The balance avatar. Each body part glows with one area:
-/// head = Intellect, torso = Social, arms = Craft, legs = Physical,
-/// aura = Mind, ground ring = Wealth.
+/// The balance avatar. Each line fills with one area:
+/// head = Intellect, body = Social, arms = Craft, legs = Physical,
+/// halo = Mind, ground = Wealth.
 class CharacterFigure extends StatelessWidget {
   const CharacterFigure({super.key, required this.strengths, this.size = 160, this.tokens});
 
@@ -21,7 +21,7 @@ class CharacterFigure extends StatelessWidget {
     return Semantics(
       label: 'Avatar. ${[for (final a in Area.values) '${a.label} ${strengths[a]}'].join(', ')}',
       child: SizedBox(
-        width: size * .8,
+        width: size * 240 / 296,
         height: size,
         child: CustomPaint(painter: _FigurePainter(strengths, t)),
       ),
@@ -29,84 +29,103 @@ class CharacterFigure extends StatelessWidget {
   }
 }
 
+/// The neon hero: a line figure, hands on hips. Each line fills with its
+/// area's colour like a progress bar, growing out from the body, and glows.
 class _FigurePainter extends CustomPainter {
   _FigurePainter(this.v, this.t);
 
   final Map<Area, int> v;
   final Tokens t;
 
-  double _op(Area a) => .12 + .88 * (v[a] ?? 0) / 100;
+  bool get _dark => t.screen.computeLuminance() < .5;
+  Color get _track => _dark ? const Color(0xFF262C52) : const Color(0xFFDDE1EA);
+
+  static Path _body() => Path()
+    ..moveTo(120, 56)
+    ..lineTo(120, 66)
+    ..moveTo(120, 66)
+    ..quadraticBezierTo(96, 66, 88, 76)
+    ..quadraticBezierTo(92, 108, 102, 132)
+    ..quadraticBezierTo(100, 146, 104, 156)
+    ..lineTo(136, 156)
+    ..quadraticBezierTo(140, 146, 138, 132)
+    ..quadraticBezierTo(148, 108, 152, 76)
+    ..quadraticBezierTo(144, 66, 120, 66);
+
+  static Path _line(List<Offset> p) {
+    final path = Path()..moveTo(p.first.dx, p.first.dy);
+    for (final x in p.skip(1)) {
+      path.lineTo(x.dx, x.dy);
+    }
+    return path;
+  }
+
+  static Path _ring(Offset c, double r) =>
+      Path()..addArc(Rect.fromCircle(center: c, radius: r), -math.pi / 2, 2 * math.pi - .001);
+
+  static final _parts = <(Area, Path, double)>[
+    (Area.mind, _ring(const Offset(120, 38), 28), 2),
+    (Area.wealth, _line(const [Offset(60, 280), Offset(180, 280)]), 3),
+    (Area.social, _body(), 4.5),
+    (Area.craft, _line(const [Offset(90, 80), Offset(66, 112), Offset(98, 136)]), 4.5),
+    (Area.craft, _line(const [Offset(150, 80), Offset(174, 112), Offset(142, 136)]), 4.5),
+    (Area.physical, _line(const [Offset(110, 158), Offset(96, 212), Offset(84, 262), Offset(72, 266)]), 4.5),
+    (Area.physical, _line(const [Offset(130, 158), Offset(144, 212), Offset(156, 262), Offset(168, 266)]), 4.5),
+    (Area.intellect, _ring(const Offset(120, 38), 17), 4.5),
+  ];
+
+  static const _joints = <(Offset, Area)>[
+    (Offset(90, 80), Area.craft),
+    (Offset(66, 112), Area.craft),
+    (Offset(150, 80), Area.craft),
+    (Offset(174, 112), Area.craft),
+    (Offset(96, 212), Area.physical),
+    (Offset(144, 212), Area.physical),
+    (Offset(84, 262), Area.physical),
+    (Offset(156, 262), Area.physical),
+  ];
+
+  /// The first [f] of [path], across all of its pieces in order.
+  static Path _portion(Path path, double f) {
+    final metrics = path.computeMetrics().toList();
+    var left = metrics.fold(0.0, (n, m) => n + m.length) * f;
+    final out = Path();
+    for (final m in metrics) {
+      if (left <= 0) break;
+      out.addPath(m.extractPath(0, math.min(left, m.length)), Offset.zero);
+      left -= m.length;
+    }
+    return out;
+  }
+
+  Paint _stroke(Color c, double w) => Paint()
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = w
+    ..strokeCap = StrokeCap.round
+    ..strokeJoin = StrokeJoin.round
+    ..color = c;
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Drawn on a 240×300 grid, like the design.
-    final s = math.min(size.width / 240, size.height / 300);
-    canvas.translate((size.width - 240 * s) / 2, (size.height - 300 * s) / 2);
+    // Drawn on a 240×296 grid.
+    final s = math.min(size.width / 240, size.height / 296);
+    canvas.translate((size.width - 240 * s) / 2, (size.height - 296 * s) / 2 + 4 * s);
     canvas.scale(s);
 
-    final mind = (v[Area.mind] ?? 0) / 100;
-    canvas.drawOval(
-      Rect.fromCenter(center: const Offset(120, 140), width: 192, height: 264),
-      Paint()
-        ..shader = RadialGradient(colors: [
-          t.area(Area.mind).withValues(alpha: mind * .7),
-          t.area(Area.mind).withValues(alpha: 0),
-        ]).createShader(Rect.fromCenter(center: const Offset(120, 140), width: 192, height: 264)),
-    );
-
-    // Wealth: ground ring.
-    final ground = Rect.fromCenter(center: const Offset(120, 280), width: 116, height: 18);
-    canvas.drawOval(ground, Paint()..color = t.heat0);
-    final w = (v[Area.wealth] ?? 0) / 100;
-    if (w > 0) {
-      canvas.drawOval(
-          Rect.fromCenter(center: const Offset(120, 280), width: 116 * w, height: 18),
-          Paint()..color = t.area(Area.wealth));
+    final blur = MaskFilter.blur(BlurStyle.normal, _dark ? 3.2 : 1.6);
+    for (final (a, path, w) in _parts) {
+      canvas.drawPath(path, _stroke(a == Area.mind ? _track.withValues(alpha: .7) : _track, w));
+      final f = ((v[a] ?? 0) / 100).clamp(0.0, 1.0);
+      if (f == 0) continue;
+      final lit = _portion(path, f);
+      canvas.drawPath(lit, _stroke(t.area(a), w)..maskFilter = blur);
+      canvas.drawPath(lit, _stroke(t.area(a), w));
     }
-
-    void limb(List<Offset> pts, double width, Area a) {
-      final path = Path()..moveTo(pts[0].dx, pts[0].dy);
-      for (final p in pts.skip(1)) {
-        path.lineTo(p.dx, p.dy);
-      }
-      final base = Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = width
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round;
-      canvas.drawPath(path, base..color = t.heat0);
-      _glow(canvas, a, (p) => canvas.drawPath(path, p..style = PaintingStyle.stroke..strokeWidth = width..strokeCap = StrokeCap.round..strokeJoin = StrokeJoin.round));
+    for (final (p, a) in _joints) {
+      final on = (v[a] ?? 0) > 0;
+      if (on) canvas.drawCircle(p, 3.4, Paint()..color = t.area(a)..maskFilter = blur);
+      canvas.drawCircle(p, 3.4, Paint()..color = on ? t.area(a) : _track);
     }
-
-    limb(const [Offset(84, 86), Offset(72, 132), Offset(68, 172)], 13, Area.craft);
-    limb(const [Offset(156, 86), Offset(168, 132), Offset(172, 172)], 13, Area.craft);
-    limb(const [Offset(107, 158), Offset(103, 212), Offset(101, 264)], 17, Area.physical);
-    limb(const [Offset(133, 158), Offset(137, 212), Offset(139, 264)], 17, Area.physical);
-
-    final torso = Path()
-      ..moveTo(84, 80)
-      ..quadraticBezierTo(120, 70, 156, 80)
-      ..lineTo(148, 156)
-      ..quadraticBezierTo(120, 166, 92, 156)
-      ..close();
-    canvas.drawPath(torso, Paint()..color = t.heat0);
-    _glow(canvas, Area.social, (p) => canvas.drawPath(torso, p));
-
-    canvas.drawRRect(
-        RRect.fromRectAndRadius(const Rect.fromLTWH(113, 60, 14, 14), const Radius.circular(4)),
-        Paint()..color = t.heat0);
-    canvas.drawCircle(const Offset(120, 40), 22, Paint()..color = t.heat0);
-    _glow(canvas, Area.intellect, (p) => canvas.drawCircle(const Offset(120, 40), 22, p));
-  }
-
-  void _glow(Canvas canvas, Area a, void Function(Paint) draw) {
-    final c = t.area(a).withValues(alpha: _op(a));
-    if ((v[a] ?? 0) >= 50) {
-      draw(Paint()
-        ..color = t.area(a).withValues(alpha: .55)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6));
-    }
-    draw(Paint()..color = c);
   }
 
   @override
