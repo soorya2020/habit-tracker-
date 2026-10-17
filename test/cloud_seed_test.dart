@@ -5,7 +5,7 @@ import 'package:one_percent_club/domain/models.dart';
 
 void main() {
   test('club setup fits in one Firestore batch with unique ids', () {
-    final logs = [for (final p in SheetImport.profiles) ...SheetImport.logs(p.uid)];
+    final logs = [for (final p in SheetImport.profiles) ...SheetImport.allLogs(p.uid)];
     final habits = [for (final p in SheetImport.profiles) ...SheetImport.habits(p.uid)];
     final writes = SheetImport.profiles.length + SheetImport.cycles.length + habits.length + logs.length + 2;
     expect(writes, lessThan(500));
@@ -21,7 +21,7 @@ void main() {
       for (final h in SheetImport.habits(p.uid)) {
         expect(Habit.fromJson(h.toJson()).toJson(), h.toJson());
       }
-      for (final l in SheetImport.logs(p.uid)) {
+      for (final l in SheetImport.allLogs(p.uid)) {
         expect(LogEntry.fromJson(l.toJson()).toJson(), l.toJson());
       }
     }

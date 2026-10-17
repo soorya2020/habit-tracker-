@@ -36,7 +36,7 @@ class LocalRepository implements Repository {
         habits: [
           for (final p in SheetImport.profiles) ...SheetImport.habits(p.uid)
         ],
-        logs: [for (final p in SheetImport.profiles) ...SheetImport.logs(p.uid)],
+        logs: [for (final p in SheetImport.profiles) ...SheetImport.allLogs(p.uid)],
       );
 
   @override

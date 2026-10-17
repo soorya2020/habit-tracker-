@@ -52,6 +52,7 @@ class AccountNotifier extends Notifier<Account> {
     try {
       final member = await _repo.memberFor(u.uid);
       if (member != null) {
+        await _repo.backfillHistory(member).catchError((_) {});
         state = Account(Stage.ready, email: email, memberId: member);
       } else if (!await _repo.clubExists()) {
         state = Account(Stage.setup, email: email);

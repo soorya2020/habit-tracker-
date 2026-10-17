@@ -4,9 +4,10 @@ import '../domain/models.dart';
 /// One-time import from the "6-Month Skill Transformation" Google Sheet.
 ///
 /// The sheet keeps one P (practised) or M (missed) per person per day, so
-/// history comes in as a "Daily check-in" habit. It counts for XP, streaks
-/// and history, but not for area strength, because the sheet never said
-/// which habit was done.
+/// history comes in as a "Daily check-in" habit that carries XP, streaks
+/// and remarks. Each day is also credited to the habits it names in its
+/// remark ("gym, chess, comm"), or to that month's focus when the remark
+/// names none, so the areas and the avatar start from the sheet too.
 class SheetImport {
   static const soorya = 'soorya';
   static const sanat = 'sanat';
@@ -103,13 +104,82 @@ class SheetImport {
     ];
   }
 
+  /// Habits each sheet day is credited to: the ones its remark names, or
+  /// the month's focus when it names none. Days the sheet marks M count as
+  /// misses for the same habits.
+  static Map<String, LogStatus> creditsFor(String owner, int month, int day, String status, String remark) {
+    final text = remark.toLowerCase().replaceAll(RegExp(r'\bno \w+'), '');
+    bool has(String pattern) => RegExp(pattern).hasMatch(text);
+    final named = <String, LogStatus>{};
+    void put(String id, bool missed) => named[id] = missed ? LogStatus.missed : LogStatus.done;
+    if (owner == soorya) {
+      if (has(r'\bai\b|course')) put('s1', false);
+      if (has(r'read|book|page|chapter')) put('s5', false);
+      if (has(r'journal')) put('s4', false);
+      if (has(r'chess')) put('s6', false);
+      if (has(r'comm|debate|speech')) put('s3', has(_commMissed));
+    } else {
+      if (has(r'missed gym')) {
+        put('n1', true);
+      } else if (has(r'leg|push|pull|upper|gym|abs|run|ran|\dk\b|workout')) {
+        put('n1', false);
+      }
+      if (has(r'junk') && !has(r"didn't junk")) {
+        put('n2', true);
+      } else if (has(r'diet')) {
+        put('n2', false);
+      }
+      if (has(r'chess|both')) put('n3', false);
+      if (has(r'comm|debate|speech|both')) put('n4', has(_commMissed));
+    }
+    final missed = status != 'P';
+    if (named.isNotEmpty) {
+      return missed ? {for (final id in named.keys) id: LogStatus.missed} : named;
+    }
+    // Chess and communication drills started on day 15 of month 1.
+    final focus = owner == soorya
+        ? (month == 1 ? (day < 15 ? ['s1', 's5'] : ['s1', 's3', 's6']) : ['s3', 's6'])
+        : (month == 1 ? (day < 15 ? ['n1', 'n2'] : ['n1', 'n3', 'n4']) : ['n3', 'n4']);
+    return {for (final id in focus) id: missed ? LogStatus.missed : LogStatus.done};
+  }
+
+  static const _commMissed = r'comm\w*( \w+)? miss|(skip|miss)\w* comm';
+
+  /// Sheet days credited to individual habits.
+  static List<LogEntry> habitLogs(String owner) {
+    final rows = owner == soorya ? _soorya : _sanat;
+    final at = DateTime(2026, 10, 16);
+    return [
+      for (final m in rows.keys)
+        for (var i = 0; i < rows[m]!.length; i++)
+          for (final c in creditsFor(owner, m, i + 1, rows[m]![i][0], rows[m]![i][1]).entries)
+            LogEntry(habitId: c.key, owner: owner, day: dateOf(m, i + 1), status: c.value, updatedAt: at, source: 'import'),
+    ];
+  }
+
+  /// Every imported log: the daily check-in and the habits it is credited to.
+  static List<LogEntry> allLogs(String owner) => [...logs(owner), ...habitLogs(owner)];
+
+  /// Lets a habit hold sheet history: before the handover it is owed only
+  /// on days it was logged, so the import adds no misses of its own.
+  static Habit _history(Habit h) => h.copyWith(
+        startCycle: 1,
+        rules: [HabitRule(from: cycles.first.start, mode: HabitMode.maintain, perWeek: 0), ...h.rules],
+      );
+
+  static const _withHistory = {'s1', 's3', 's4', 's5', 's6', 'n1', 'n2', 'n3', 'n4'};
+
+  static List<Habit> habits(String owner) => [
+        for (final h in _habits(owner)) _withHistory.contains(h.id) ? _history(h) : h,
+      ];
+
   static HabitRule _r(Set<int> days, {int? at, double target = 1}) =>
       HabitRule(from: handover, days: days, reminder: at, target: target);
 
   static const _all = {1, 2, 3, 4, 5, 6, 7};
   static int _t(int h, int m) => h * 60 + m;
 
-  static List<Habit> habits(String owner) => owner == soorya
+  static List<Habit> _habits(String owner) => owner == soorya
       ? [
           Habit(id: 's1', owner: owner, name: 'AI course', area: Area.intellect, kind: TrackKind.amount, unit: 'min', tiny: '10 min', minutes: 60, core: true, startCycle: 1, rules: [_r({1, 2, 3, 4, 5, 6}, at: _t(19, 0), target: 60)]),
           Habit(id: 's4', owner: owner, name: 'Journal', area: Area.mind, tiny: 'one line', minutes: 10, core: true, startCycle: 1, rules: [_r(_all, at: _t(22, 30))]),

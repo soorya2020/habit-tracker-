@@ -135,12 +135,37 @@ class FirestoreRepository implements Repository {
       for (final h in SheetImport.habits(p.uid)) {
         batch.set(_c('habits').doc(h.id), h.toJson());
       }
-      for (final l in SheetImport.logs(p.uid)) {
+      for (final l in SheetImport.allLogs(p.uid)) {
         batch.set(_c('logs').doc(logDocId(l)), l.toJson());
       }
     }
     batch.set(_c('uids').doc(authUid), {'member': memberId});
     batch.set(_db.doc('meta/club'), {'createdAt': DateTime.now().toIso8601String(), 'createdBy': memberId});
+    await batch.commit();
+  }
+
+  /// Brings a club set up before habits held sheet history up to date:
+  /// writes this member's habits with their history rule and the sheet days
+  /// credited to them. Habits edited since setup keep the edits.
+  Future<void> backfillHistory(String memberId) async {
+    final seeded = SheetImport.habits(memberId);
+    final withHistory = [for (final h in seeded) if (h.rules.length > 1 && h.rules.first.from.isBefore(SheetImport.handover)) h];
+    if (withHistory.isEmpty) return;
+    final probe = await _c('habits').doc(withHistory.first.id).get();
+    final stored = probe.data();
+    if (stored == null) return;
+    if (Habit.fromJson(stored).rules.first.from.isBefore(SheetImport.handover)) return;
+    final batch = _db.batch();
+    for (final h in withHistory) {
+      final doc = await _c('habits').doc(h.id).get();
+      final data = doc.data();
+      if (data == null) continue;
+      final now = Habit.fromJson(data);
+      batch.set(doc.reference, now.copyWith(startCycle: 1, rules: [h.rules.first, ...now.rules]).toJson());
+    }
+    for (final l in SheetImport.habitLogs(memberId)) {
+      batch.set(_c('logs').doc(logDocId(l)), l.toJson(), SetOptions(merge: true));
+    }
     await batch.commit();
   }
 

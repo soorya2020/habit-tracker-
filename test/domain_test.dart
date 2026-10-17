@@ -244,17 +244,35 @@ void main() {
       expect(SheetImport.dateOf(2, 29), Day(2026, 10, 16));
     });
 
-    test('history gives a starting level and no fake area scores', () {
+    test('history gives a starting level, streaks and area scores', () {
       final o = SheetImport.soorya;
-      final s = _sched(SheetImport.habits(o), SheetImport.logs(o));
+      final s = _sched(SheetImport.habits(o), SheetImport.allLogs(o));
       final today = Day(2026, 10, 16);
       final xp = Xp.total(s, SheetImport.cycles.first.start, today);
       expect(xp, 3000); // 30 practised days
-      expect(Strengths.of(s, today).values.every((x) => x == 0), isTrue);
       final st = const StreakEngine()
           .run(s, SheetImport.cycles.first.start, today, DateTime(2026, 10, 16, 20));
       expect(st.daysAway, 9); // 7–15 Oct
       expect(st.best, greaterThanOrEqualTo(10));
+      // Seen from the last sheet day, recent practice shows in the areas.
+      final v = Strengths.of(s, SheetImport.dateOf(2, 13));
+      expect(v[Area.intellect], greaterThan(0));
+      expect(v[Area.social], greaterThan(0));
+    });
+
+    test('remarks credit the habits they name', () {
+      final c = SheetImport.creditsFor;
+      expect(c(SheetImport.soorya, 1, 18, 'P', 'chess and debate, no ai'), {'s6': LogStatus.done, 's3': LogStatus.done});
+      expect(c(SheetImport.soorya, 1, 5, 'P', '2hrs of course completed, started daily journaling again'),
+          {'s1': LogStatus.done, 's4': LogStatus.done});
+      expect(c(SheetImport.soorya, 1, 21, 'M', 'got late and skipped comm vedio'), {'s3': LogStatus.missed});
+      expect(c(SheetImport.sanat, 1, 21, 'P', 'missed gym, did chess and comm'),
+          {'n1': LogStatus.missed, 'n3': LogStatus.done, 'n4': LogStatus.done});
+      expect(c(SheetImport.sanat, 1, 10, 'M', 'failed miserably, was rest day but ordered junk'), {'n2': LogStatus.missed});
+      expect(c(SheetImport.sanat, 1, 4, 'P', "pull day. tatakae, maintained a strict diet. went for team dinner, Didn't junk"),
+          {'n1': LogStatus.done, 'n2': LogStatus.done});
+      // No habit named: the month's focus.
+      expect(c(SheetImport.sanat, 2, 10, 'M', 'Poondi'), {'n3': LogStatus.missed, 'n4': LogStatus.missed});
     });
   });
 }
