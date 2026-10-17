@@ -202,6 +202,7 @@ class _MonthBody extends ConsumerWidget {
     final focus = TextEditingController(text: c.focus);
     final done = TextEditingController(text: c.doneMeans);
     await showModalBottomSheet(
+      useRootNavigator: true,
       context: context,
       isScrollControlled: true,
       builder: (ctx) => Padding(
@@ -231,6 +232,7 @@ class _MonthBody extends ConsumerWidget {
     var verdict = ReviewVerdict.partly;
     final note = TextEditingController();
     await showModalBottomSheet(
+      useRootNavigator: true,
       context: context,
       isScrollControlled: true,
       builder: (ctx) => StatefulBuilder(

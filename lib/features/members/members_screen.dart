@@ -83,6 +83,7 @@ class MembersScreen extends ConsumerWidget {
   Future<void> _setEmail(BuildContext context, WidgetRef ref, Profile p) async {
     final email = TextEditingController(text: p.email);
     await showModalBottomSheet(
+      useRootNavigator: true,
       context: context,
       isScrollControlled: true,
       builder: (ctx) => Padding(
@@ -119,6 +120,7 @@ class MembersScreen extends ConsumerWidget {
     final email = TextEditingController();
     var role = Role.member;
     await showModalBottomSheet(
+      useRootNavigator: true,
       context: context,
       isScrollControlled: true,
       builder: (ctx) => StatefulBuilder(

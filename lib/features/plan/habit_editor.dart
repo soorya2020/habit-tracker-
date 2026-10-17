@@ -11,6 +11,7 @@ import '../../widgets/common.dart';
 /// so past days and streaks keep the old schedule.
 Future<void> showHabitEditor(BuildContext context, {Habit? habit, int cycle = 1}) =>
     showModalBottomSheet(
+      useRootNavigator: true,
       context: context,
       isScrollControlled: true,
       useSafeArea: true,

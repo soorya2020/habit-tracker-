@@ -12,6 +12,7 @@ import 'quick_log.dart';
 /// Done / Tiny / Missed with an amount and a remark.
 Future<void> showLogSheet(BuildContext context, Habit h, Day day) =>
     showModalBottomSheet(
+      useRootNavigator: true,
       context: context,
       isScrollControlled: true,
       builder: (_) => _LogSheet(habit: h, day: day),
