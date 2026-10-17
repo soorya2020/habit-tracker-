@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -85,6 +87,13 @@ class _WinDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return Stack(children: [
+      _card(context),
+      const Positioned.fill(child: IgnorePointer(child: Confetti())),
+    ]);
+  }
+
+  Widget _card(BuildContext context) {
     final t = context.tk;
     final light = Theme.of(context).brightness == Brightness.light;
     return Dialog(
@@ -125,4 +134,99 @@ class _WinDialog extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Party-popper burst: two cannons at the bottom corners fire coloured
+/// paper that tumbles and falls.
+class Confetti extends StatefulWidget {
+  const Confetti({super.key});
+
+  @override
+  State<Confetti> createState() => _ConfettiState();
+}
+
+class _ConfettiState extends State<Confetti> with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 2600));
+  final _bits = <_Bit>[];
+
+  @override
+  void initState() {
+    super.initState();
+    final r = math.Random();
+    const colors = [Color(0xFFF08A70), Color(0xFFA991F0), Color(0xFF7C90FF), Color(0xFFE8B04A), Color(0xFF4CC4AC), Color(0xFFA3C55A)];
+    for (var i = 0; i < 90; i++) {
+      final left = i.isEven;
+      // Aim up and towards the middle, with some spread.
+      final angle = (left ? -math.pi / 3 : -2 * math.pi / 3) + (r.nextDouble() - .5) * .8;
+      final speed = 1.1 + r.nextDouble() * .9;
+      _bits.add(_Bit(
+        left: left,
+        vx: math.cos(angle) * speed,
+        vy: math.sin(angle) * speed,
+        spin: (r.nextDouble() - .5) * 18,
+        size: 6 + r.nextDouble() * 6,
+        color: colors[i % colors.length],
+        round: r.nextDouble() < .3,
+      ));
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final still = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    if (!still && !_c.isAnimating && _c.value == 0) _c.forward();
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+        animation: _c,
+        builder: (_, _) => CustomPaint(painter: _ConfettiPainter(_bits, _c.value)),
+      );
+}
+
+class _Bit {
+  _Bit({required this.left, required this.vx, required this.vy, required this.spin, required this.size, required this.color, required this.round});
+  final bool left, round;
+  final double vx, vy, spin, size;
+  final Color color;
+}
+
+class _ConfettiPainter extends CustomPainter {
+  _ConfettiPainter(this.bits, this.t);
+  final List<_Bit> bits;
+  final double t;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (t == 0 || t == 1) return;
+    final s = t * 2.6; // seconds
+    const gravity = .9;
+    for (final b in bits) {
+      final x = (b.left ? 0 : size.width) + b.vx * s * size.width * .55;
+      final y = size.height + (b.vy * s + gravity * s * s / 2) * size.height * .55;
+      final fade = t > .75 ? (1 - t) / .25 : 1.0;
+      final p = Paint()..color = b.color.withValues(alpha: fade);
+      canvas.save();
+      canvas.translate(x, y);
+      canvas.rotate(b.spin * s);
+      if (b.round) {
+        canvas.drawCircle(Offset.zero, b.size / 2.4, p);
+      } else {
+        // Flutters by squashing one side as it turns.
+        canvas.scale(1, math.cos(b.spin * s * 1.3).abs() * .8 + .2);
+        canvas.drawRect(Rect.fromCenter(center: Offset.zero, width: b.size, height: b.size * .55), p);
+      }
+      canvas.restore();
+    }
+  }
+
+  @override
+  bool shouldRepaint(_ConfettiPainter old) => old.t != t;
 }

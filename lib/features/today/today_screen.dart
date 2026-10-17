@@ -84,8 +84,6 @@ class TodayScreen extends ConsumerWidget {
                 ],
               ],
             ],
-            const SizedBox(height: 4),
-            _TitleCard(me: me),
             if (partner != null) ...[
               const SizedBox(height: 12),
               _PartnerCard(me: me, partner: partner),
@@ -445,47 +443,6 @@ class _WeekDot extends StatelessWidget {
         ),
         child: Text(label, style: TextStyle(color: fg, fontWeight: FontWeight.w600, fontSize: 13)),
       ),
-    );
-  }
-}
-
-/// The next title and the areas that get you there.
-class _TitleCard extends StatelessWidget {
-  const _TitleCard({required this.me});
-  final PersonView me;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.tk;
-    final v = me.strengths;
-    final goal = TitleGoal.of(v, resting: me.profile.resting);
-    if (goal == null) {
-      return Panel(child: Text('You hold ${Titles.complete}. Keep every area above ${Titles.completeMin}.', style: context.tx.bodyMedium));
-    }
-    final have = goal.reached(v);
-    return Panel(
-      onTap: () => context.go('/insights'),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Eyebrow('Next title', color: t.accent),
-        const SizedBox(height: 4),
-        Text('${goal.title} is within reach', style: context.tx.titleMedium),
-        const SizedBox(height: 2),
-        Text(
-          goal.title == Titles.polymath
-              ? '${goal.needed} areas at ${goal.target}. You have $have.'
-              : 'Every area at ${goal.target}. Lift the lowest first.',
-          style: context.tx.bodySmall,
-        ),
-        const SizedBox(height: 10),
-        for (final a in goal.areas) ...[
-          Row(children: [
-            SizedBox(width: 70, child: Text(a.label, style: context.tx.bodySmall?.copyWith(color: t.ink))),
-            Expanded(child: Bar(value: (v[a]! / goal.target).clamp(0, 1).toDouble(), color: t.area(a))),
-            SizedBox(width: 56, child: Text('${v[a]} / ${goal.target}', textAlign: TextAlign.right, style: mono(11, t.muted))),
-          ]),
-          const SizedBox(height: 6),
-        ],
-      ]),
     );
   }
 }
