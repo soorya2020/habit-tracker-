@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/models.dart';
+import '../../services/updates.dart';
 import '../../state/providers.dart';
 import '../../ui/theme.dart';
 import '../../widgets/common.dart';
@@ -102,6 +103,23 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ]),
           ),
+          section('App'),
+          Consumer(builder: (context, ref, _) {
+            final u = ref.watch(updateProvider);
+            final s = u.value;
+            return ListTile(
+              leading: const Icon(Icons.system_update_outlined),
+              title: Text(s != null && s.available ? 'Update available' : 'Check for updates'),
+              subtitle: Text(switch (u) {
+                AsyncLoading() => 'Checking…',
+                _ when s == null || s.installed == 0 => 'Updates are checked on Android.',
+                _ when s.latest == null => 'Build ${s.installed}. Couldn\'t reach GitHub.',
+                _ when s.available => 'Build ${s.installed} installed, build ${s.latest!.build} is ready. Tap to download.',
+                _ => 'Build ${s.installed}, the latest.',
+              }),
+              onTap: s != null && s.available ? Updates.download : () => ref.invalidate(updateProvider),
+            );
+          }),
           section('Account'),
           ListTile(
             title: Text(p.name),

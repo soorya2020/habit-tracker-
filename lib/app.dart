@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:home_widget/home_widget.dart';
 
 import 'features/auth/sign_in_screen.dart';
 import 'features/future/future_screen.dart';
+import 'features/log/log_sheet.dart';
 import 'features/insights/insights_screen.dart';
 import 'features/members/members_screen.dart';
 import 'features/plan/habit_editor.dart';
@@ -12,6 +16,8 @@ import 'features/settings/settings_screen.dart';
 import 'features/today/today_screen.dart';
 import 'services/notifications.dart';
 import 'services/reminder_sync.dart';
+import 'services/updates.dart';
+import 'services/widget_sync.dart';
 import 'state/providers.dart';
 import 'ui/theme.dart';
 
@@ -69,16 +75,33 @@ class _Shell extends ConsumerStatefulWidget {
 }
 
 class _ShellState extends ConsumerState<_Shell> with WidgetsBindingObserver {
+  StreamSubscription<Uri?>? _widgetTaps;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     NotificationService.instance.onQueued = _resume;
     WidgetsBinding.instance.addPostFrameCallback((_) => _resume());
+    if (WidgetSync.supported) {
+      _widgetTaps = HomeWidget.widgetClicked.listen(_openFromWidget);
+      HomeWidget.initiallyLaunchedFromHomeWidget().then(_openFromWidget);
+    }
+  }
+
+  /// A habit tapped on the home-screen widget opens its log sheet.
+  void _openFromWidget(Uri? uri) {
+    final id = WidgetSync.habitOf(uri);
+    if (id == null || !mounted) return;
+    final me = ref.read(meProvider);
+    final h = me.habits.where((x) => x.id == id).firstOrNull;
+    widget.shell.goBranch(0);
+    if (h != null) showLogSheet(context, h, me.today);
   }
 
   @override
   void dispose() {
+    _widgetTaps?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     NotificationService.instance.onQueued = null;
     super.dispose();
@@ -91,13 +114,18 @@ class _ShellState extends ConsumerState<_Shell> with WidgetsBindingObserver {
 
   Future<void> _resume() async {
     ref.read(clockProvider.notifier).tick();
+    ref.invalidate(updateProvider);
     await ref.read(reminderSyncProvider).drain();
     ref.read(reminderSyncProvider).schedule(ref.read(meProvider));
+    WidgetSync.push(ref.read(meProvider));
   }
 
   @override
   Widget build(BuildContext context) {
-    ref.listen(meProvider, (_, me) => ref.read(reminderSyncProvider).schedule(me));
+    ref.listen(meProvider, (_, me) {
+      ref.read(reminderSyncProvider).schedule(me);
+      WidgetSync.push(me);
+    });
     final t = context.tk;
     return Scaffold(
       body: widget.shell,

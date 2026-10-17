@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../core/day.dart';
 import '../../domain/models.dart';
 import '../../state/person_view.dart';
+import '../../services/updates.dart';
 import '../../state/providers.dart';
 import '../../ui/theme.dart';
 import '../../widgets/common.dart';
@@ -83,6 +84,16 @@ class TodayScreen extends ConsumerWidget {
     final t = context.tk;
     final actions = ref.read(actionsProvider);
     final out = <Widget>[];
+    final update = ref.watch(updateProvider).value;
+    if (update != null && update.available) {
+      final notes = update.latest!.notes;
+      out.add(Callout(
+        title: 'Update available',
+        body: notes.isEmpty ? 'A newer version of the app is ready.' : 'New: $notes',
+        tone: t.accent,
+        actions: [FilledButton(onPressed: Updates.download, child: const Text('Download update'))],
+      ));
+    }
     if (me.offerComeback) {
       final core = me.habits.where((h) => h.core && !h.archived).length;
       out.add(Callout(
