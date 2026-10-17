@@ -237,8 +237,8 @@ void main() {
     test('matches the sheet totals', () {
       expect(SheetImport.sheetPercent(SheetImport.soorya, 1), closeTo(.767, .01));
       expect(SheetImport.sheetPercent(SheetImport.sanat, 1), closeTo(.933, .01));
-      expect(SheetImport.logs(SheetImport.soorya).length, 49);
-      expect(SheetImport.logs(SheetImport.sanat).length, 54);
+      expect(SheetImport.logs(SheetImport.soorya).length, 58);
+      expect(SheetImport.logs(SheetImport.sanat).length, 58);
       expect(SheetImport.dateOf(1, 1), Day(2026, 8, 17));
       expect(SheetImport.dateOf(1, 30), Day(2026, 9, 17));
       expect(SheetImport.dateOf(2, 29), Day(2026, 10, 16));
@@ -249,10 +249,11 @@ void main() {
       final s = _sched(SheetImport.habits(o), SheetImport.allLogs(o));
       final today = Day(2026, 10, 16);
       final xp = Xp.total(s, SheetImport.cycles.first.start, today);
-      expect(xp, 3000); // 30 practised days
+      expect(xp, 3380); // 33 practised days, then 4 of 5 habits on 16 Oct
       final st = const StreakEngine()
           .run(s, SheetImport.cycles.first.start, today, DateTime(2026, 10, 16, 20));
-      expect(st.daysAway, 9); // 7–15 Oct
+      expect(st.daysAway, 0); // logged on 16 Oct
+      expect(st.current, greaterThan(0));
       expect(st.best, greaterThanOrEqualTo(10));
       // Seen from the last sheet day, recent practice shows in the areas.
       final v = Strengths.of(s, SheetImport.dateOf(2, 13));

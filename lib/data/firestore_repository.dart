@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../domain/models.dart';
 import 'repository.dart';
@@ -144,29 +145,34 @@ class FirestoreRepository implements Repository {
     await batch.commit();
   }
 
-  /// Brings a club set up before habits held sheet history up to date:
-  /// writes this member's habits with their history rule and the sheet days
-  /// credited to them. Habits edited since setup keep the edits.
+  /// Bumped whenever the sheet rows in [SheetImport] change.
+  static const sheetVersion = 2;
+
+  /// Brings this member's club data up to the current sheet import:
+  /// habits get their history rule, and sheet days missing from the app are
+  /// added. Days already logged in the app are never overwritten.
   Future<void> backfillHistory(String memberId) async {
-    final seeded = SheetImport.habits(memberId);
-    final withHistory = [for (final h in seeded) if (h.rules.length > 1 && h.rules.first.from.isBefore(SheetImport.handover)) h];
-    if (withHistory.isEmpty) return;
-    final probe = await _c('habits').doc(withHistory.first.id).get();
-    final stored = probe.data();
-    if (stored == null) return;
-    if (Habit.fromJson(stored).rules.first.from.isBefore(SheetImport.handover)) return;
+    final prefs = await SharedPreferences.getInstance();
+    final key = 'import.sheet.$memberId';
+    if ((prefs.getInt(key) ?? 0) >= sheetVersion) return;
     final batch = _db.batch();
-    for (final h in withHistory) {
+    for (final h in SheetImport.habits(memberId)) {
+      if (h.rules.length < 2 || !h.rules.first.from.isBefore(SheetImport.handover)) continue;
       final doc = await _c('habits').doc(h.id).get();
       final data = doc.data();
       if (data == null) continue;
       final now = Habit.fromJson(data);
+      if (now.rules.first.from.isBefore(SheetImport.handover)) continue;
       batch.set(doc.reference, now.copyWith(startCycle: 1, rules: [h.rules.first, ...now.rules]).toJson());
     }
-    for (final l in SheetImport.habitLogs(memberId)) {
-      batch.set(_c('logs').doc(logDocId(l)), l.toJson(), SetOptions(merge: true));
+    final existing = await _c('logs').where('owner', isEqualTo: memberId).get();
+    final have = {for (final d in existing.docs) d.id};
+    for (final l in SheetImport.allLogs(memberId)) {
+      final id = logDocId(l);
+      if (!have.contains(id)) batch.set(_c('logs').doc(id), l.toJson());
     }
     await batch.commit();
+    await prefs.setInt(key, sheetVersion);
   }
 
   /// Links an invited member to the account that just signed in.
