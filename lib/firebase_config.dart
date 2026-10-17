@@ -1,3 +1,6 @@
+// Nullable so the app can also be built without Firebase (phone-only mode).
+// ignore_for_file: unnecessary_nullable_for_final_variable_declarations
+
 import 'package:firebase_core/firebase_core.dart';
 
 /// Values from the Firebase project's google-services.json
