@@ -8,6 +8,7 @@ import 'package:home_widget/home_widget.dart';
 import 'features/auth/sign_in_screen.dart';
 import 'features/future/future_screen.dart';
 import 'features/log/log_sheet.dart';
+import 'features/today/celebration.dart';
 import 'features/insights/insights_screen.dart';
 import 'features/members/members_screen.dart';
 import 'features/plan/habit_editor.dart';
@@ -20,6 +21,7 @@ import 'services/updates.dart';
 import 'services/widget_sync.dart';
 import 'state/providers.dart';
 import 'ui/theme.dart';
+import 'ui/haptics.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final signedIn = ValueNotifier(ref.read(sessionProvider) != null);
@@ -119,6 +121,7 @@ class _ShellState extends ConsumerState<_Shell> with WidgetsBindingObserver {
     await ref.read(reminderSyncProvider).drain();
     ref.read(reminderSyncProvider).schedule(ref.read(meProvider));
     WidgetSync.push(ref.read(meProvider));
+    if (mounted) Celebrations.check(context, ref.read(meProvider));
   }
 
   @override
@@ -126,6 +129,7 @@ class _ShellState extends ConsumerState<_Shell> with WidgetsBindingObserver {
     ref.listen(meProvider, (_, me) {
       ref.read(reminderSyncProvider).schedule(me);
       WidgetSync.push(me);
+      Celebrations.check(context, me);
     });
     final t = context.tk;
     return Scaffold(
@@ -134,6 +138,7 @@ class _ShellState extends ConsumerState<_Shell> with WidgetsBindingObserver {
       floatingActionButton: widget.shell.currentIndex == 0
           ? FloatingActionButton.extended(
               onPressed: () {
+                Haptics.tap();
                 final c = ref.read(meProvider).cycleIndex;
                 showHabitEditor(context, cycle: c < 1 ? 1 : c);
               },
@@ -145,7 +150,10 @@ class _ShellState extends ConsumerState<_Shell> with WidgetsBindingObserver {
           : null,
       bottomNavigationBar: NavigationBar(
         selectedIndex: widget.shell.currentIndex,
-        onDestinationSelected: (i) => widget.shell.goBranch(i, initialLocation: i == widget.shell.currentIndex),
+        onDestinationSelected: (i) {
+          Haptics.select();
+          widget.shell.goBranch(i, initialLocation: i == widget.shell.currentIndex);
+        },
         destinations: const [
           NavigationDestination(icon: Icon(Icons.check_circle_outline), selectedIcon: Icon(Icons.check_circle), label: 'Today'),
           NavigationDestination(icon: Icon(Icons.calendar_month_outlined), selectedIcon: Icon(Icons.calendar_month), label: 'Plan'),

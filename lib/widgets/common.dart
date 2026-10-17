@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../domain/models.dart';
 import '../ui/theme.dart';
+import '../ui/haptics.dart';
 
 class Panel extends StatelessWidget {
   const Panel({super.key, required this.child, this.padding = const EdgeInsets.all(16), this.color, this.onTap});
@@ -23,7 +24,10 @@ class Panel extends StatelessWidget {
       child: Semantics(
         button: onTap != null,
         child: InkWell(
-          onTap: onTap,
+          onTap: onTap == null ? null : () {
+            Haptics.tap();
+            onTap!();
+          },
           child: Padding(padding: padding, child: child),
         ),
       ),

@@ -5,6 +5,10 @@ import 'package:intl/intl.dart';
 
 import '../../core/day.dart';
 import '../../domain/models.dart';
+import '../../domain/motivation.dart';
+import '../../domain/scoring.dart';
+import '../../domain/streaks.dart';
+import '../../widgets/character_figure.dart';
 import '../../state/person_view.dart';
 import '../../services/updates.dart';
 import '../../state/providers.dart';
@@ -51,8 +55,18 @@ class TodayScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
             ..._banners(context, ref, me),
-            _Summary(me: me, done: done, total: due.length),
-            const SizedBox(height: 16),
+            _LevelCard(me: me),
+            const SizedBox(height: 12),
+            _StreakCard(me: me),
+            const SizedBox(height: 20),
+            if (due.isNotEmpty) ...[
+              Row(children: [
+                Eyebrow('Today · $done of ${due.length}'),
+                const Spacer(),
+                Text('Worth ${Xp.perDay} XP', style: context.tx.bodySmall),
+              ]),
+              const SizedBox(height: 8),
+            ],
             if (due.isEmpty && optional.isEmpty)
               _Empty(me: me)
             else ...[
@@ -70,10 +84,19 @@ class TodayScreen extends ConsumerWidget {
                 ],
               ],
             ],
+            const SizedBox(height: 4),
+            _TitleCard(me: me),
             if (partner != null) ...[
               const SizedBox(height: 12),
-              _PartnerLine(partner: partner),
+              _PartnerCard(me: me, partner: partner),
             ],
+            const SizedBox(height: 20),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text('"${DailyLine.of(day)}"',
+                  textAlign: TextAlign.center,
+                  style: context.tx.bodySmall?.copyWith(fontStyle: FontStyle.italic)),
+            ),
           ],
         ),
       ),
@@ -155,58 +178,6 @@ class _ProfileButton extends StatelessWidget {
         backgroundColor: t.accentSoft,
         child: Text(me.profile.name.characters.first, style: TextStyle(color: t.accent, fontWeight: FontWeight.w600)),
       ),
-    );
-  }
-}
-
-class _Summary extends StatelessWidget {
-  const _Summary({required this.me, required this.done, required this.total});
-  final PersonView me;
-  final int done, total;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.tk;
-    final lv = me.level;
-    return Panel(
-      child: Row(children: [
-        SizedBox(
-          width: 56,
-          height: 56,
-          child: Stack(alignment: Alignment.center, children: [
-            CircularProgressIndicator(
-              value: total == 0 ? 0 : done / total,
-              strokeWidth: 6,
-              strokeCap: StrokeCap.round,
-              backgroundColor: t.heat0,
-              color: t.accent,
-            ),
-            Text('$done/$total', style: mono(13, t.ink)),
-          ]),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(
-              total == 0
-                  ? 'Nothing owed today'
-                  : done == total
-                      ? 'Day closed. Nice.'
-                      : '${total - done} to go today',
-              style: context.tx.titleMedium,
-            ),
-            const SizedBox(height: 6),
-            Bar(value: lv.progress),
-            const SizedBox(height: 6),
-            Text('Level ${lv.level} · ${lv.toNext} XP to ${lv.level + 1}', style: context.tx.bodySmall),
-          ]),
-        ),
-        const SizedBox(width: 12),
-        Column(children: [
-          Text('${me.streak.current}', style: display(26, t.ink)),
-          Text('day streak', style: context.tx.bodySmall),
-        ]),
-      ]),
     );
   }
 }
@@ -300,42 +271,16 @@ class _HabitRow extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Text('$streak×', style: mono(12, t.muted)),
           ),
+        if (status == null && !optional)
+          Container(
+            margin: const EdgeInsets.only(left: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(color: t.accentSoft, borderRadius: BorderRadius.circular(10)),
+            child: Text('+${Xp.shareOf(me.schedule, habit, day, LogStatus.done)} XP', style: mono(11.5, t.accent, w: FontWeight.w600)),
+          ),
         Icon(Icons.chevron_right, color: t.muted, size: 20),
       ]),
     );
-  }
-}
-
-class _PartnerLine extends StatelessWidget {
-  const _PartnerLine({required this.partner});
-  final PersonView partner;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.tk;
-    final d = partner.today;
-    final due = partner.dueOn(d);
-    final done = due.where((h) => (partner.logOn(h, d)?.credit ?? 0) > 0).length;
-    final text = due.isEmpty
-        ? 'nothing owed today'
-        : done == due.length
-            ? 'closed the day · $done of ${due.length}'
-            : '$done of ${due.length} so far today';
-    return Row(children: [
-      CircleAvatar(
-        radius: 14,
-        backgroundColor: t.heat0,
-        child: Text(partner.profile.name.characters.first, style: TextStyle(fontSize: 12, color: t.ink)),
-      ),
-      const SizedBox(width: 10),
-      Expanded(
-        child: Text.rich(TextSpan(children: [
-          TextSpan(text: partner.profile.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-          TextSpan(text: ' $text', style: TextStyle(color: t.muted)),
-        ])),
-      ),
-      Text('${partner.streak.current}d', style: mono(12, t.muted)),
-    ]);
   }
 }
 
@@ -358,6 +303,237 @@ class _Empty extends StatelessWidget {
                   ? 'Nothing is owed today. Next up: ${upcoming.first.name} in Month ${upcoming.first.startCycle}.'
                   : 'Nothing is owed today. Rest counts too.',
           style: context.tx.bodyMedium?.copyWith(color: context.tk.muted),
+        ),
+      ]),
+    );
+  }
+}
+
+/// Avatar and how far the next level is, in days.
+class _LevelCard extends StatelessWidget {
+  const _LevelCard({required this.me});
+  final PersonView me;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tk;
+    final light = Theme.of(context).brightness == Brightness.light;
+    final lv = me.level;
+    final full = (lv.toNext / Xp.perDay).ceil();
+    final pace = me.projection.daysTo(lv.level + 1);
+    final days = full == 1 ? '1 full day' : '$full full days';
+    final paceText = pace == null
+        ? 'Log today to get moving.'
+        : pace <= full
+            ? 'You are on pace.'
+            : 'At your recent pace, about $pace.';
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: t.line),
+        gradient: RadialGradient(
+          center: const Alignment(-.6, -1),
+          radius: 1.4,
+          colors: light ? const [Color(0xFFE3E8FC), Color(0xFFFFFFFF)] : const [Color(0xFF1B2050), Color(0xFF0A0D1C)],
+          stops: const [0, .75],
+        ),
+      ),
+      child: Row(children: [
+        GestureDetector(
+          onTap: () => context.go('/insights'),
+          child: CharacterFigure(strengths: me.strengths, size: 96, tokens: light ? Tokens.light : Tokens.night),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Eyebrow('Level ${lv.level} → ${lv.level + 1}', color: t.accent),
+            const SizedBox(height: 4),
+            Text('${lv.toNext} XP to Level ${lv.level + 1}', style: display(20, t.ink)),
+            const SizedBox(height: 8),
+            Bar(value: lv.progress),
+            const SizedBox(height: 6),
+            Text.rich(
+              TextSpan(children: [
+                const TextSpan(text: "That's "),
+                TextSpan(text: days, style: TextStyle(color: t.ink, fontWeight: FontWeight.w600)),
+                TextSpan(text: '. $paceText'),
+              ]),
+              style: context.tx.bodySmall,
+            ),
+          ]),
+        ),
+      ]),
+    );
+  }
+}
+
+/// Streak, the next milestone, and this week at a glance.
+class _StreakCard extends StatelessWidget {
+  const _StreakCard({required this.me});
+  final PersonView me;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tk;
+    final st = me.streak;
+    final next = Milestones.next(st.current);
+    final title = st.current == 0 ? 'Start a streak today' : '${st.current}-day streak';
+    final sub = st.current == 0
+        ? 'Keep $next days in a row to reach your first milestone.'
+        : '${next - st.current} more ${next - st.current == 1 ? 'day' : 'days'} to a $next-day streak.';
+    final start = me.today.weekStart;
+    return Panel(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('🔥 $title', style: context.tx.titleMedium),
+              const SizedBox(height: 2),
+              Text(sub, style: context.tx.bodySmall),
+            ]),
+          ),
+          const SizedBox(width: 12),
+          Column(children: [
+            Text('${st.current}', style: display(26, t.ink)),
+            Text(st.current == 1 ? 'day' : 'days', style: context.tx.bodySmall),
+          ]),
+        ]),
+        const SizedBox(height: 12),
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          for (var i = 0; i < 7; i++) _WeekDot(day: start.add(i), me: me),
+        ]),
+      ]),
+    );
+  }
+}
+
+class _WeekDot extends StatelessWidget {
+  const _WeekDot({required this.day, required this.me});
+  final Day day;
+  final PersonView me;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tk;
+    final label = DateFormat('E').format(day.date).characters.first;
+    final isToday = day == me.today;
+    final outcome = day.isBefore(me.today) ? me.streak.outcomes[day] : null;
+    final todayKept = isToday && (me.scoreOn(day) ?? 0) >= .5;
+    final kept = todayKept || outcome == DayOutcome.kept || outcome == DayOutcome.shielded;
+    final missed = outcome == DayOutcome.missed;
+    final rest = outcome == DayOutcome.rest;
+    final future = day.isAfter(me.today);
+    final Color bg = kept ? (outcome == DayOutcome.shielded ? t.ok.withValues(alpha: .5) : t.ok) : future || rest ? t.heat0 : Colors.transparent;
+    final Color fg = kept ? Colors.white : isToday ? t.accent : t.muted;
+    return Semantics(
+      label: '${DateFormat('EEEE').format(day.date)}: ${kept ? 'kept' : missed ? 'missed' : isToday ? 'today' : future ? 'later' : 'rest'}',
+      child: Container(
+        width: 36,
+        height: 36,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: bg,
+          border: kept
+              ? null
+              : isToday
+                  ? Border.all(color: t.accent, width: 2)
+                  : missed || outcome == DayOutcome.open
+                      ? Border.all(color: t.line, width: 2)
+                      : null,
+        ),
+        child: Text(label, style: TextStyle(color: fg, fontWeight: FontWeight.w600, fontSize: 13)),
+      ),
+    );
+  }
+}
+
+/// The next title and the areas that get you there.
+class _TitleCard extends StatelessWidget {
+  const _TitleCard({required this.me});
+  final PersonView me;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tk;
+    final v = me.strengths;
+    final goal = TitleGoal.of(v, resting: me.profile.resting);
+    if (goal == null) {
+      return Panel(child: Text('You hold ${Titles.complete}. Keep every area above ${Titles.completeMin}.', style: context.tx.bodyMedium));
+    }
+    final have = goal.reached(v);
+    return Panel(
+      onTap: () => context.go('/insights'),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Eyebrow('Next title', color: t.accent),
+        const SizedBox(height: 4),
+        Text('${goal.title} is within reach', style: context.tx.titleMedium),
+        const SizedBox(height: 2),
+        Text(
+          goal.title == Titles.polymath
+              ? '${goal.needed} areas at ${goal.target}. You have $have.'
+              : 'Every area at ${goal.target}. Lift the lowest first.',
+          style: context.tx.bodySmall,
+        ),
+        const SizedBox(height: 10),
+        for (final a in goal.areas) ...[
+          Row(children: [
+            SizedBox(width: 70, child: Text(a.label, style: context.tx.bodySmall?.copyWith(color: t.ink))),
+            Expanded(child: Bar(value: (v[a]! / goal.target).clamp(0, 1).toDouble(), color: t.area(a))),
+            SizedBox(width: 56, child: Text('${v[a]} / ${goal.target}', textAlign: TextAlign.right, style: mono(11, t.muted))),
+          ]),
+          const SizedBox(height: 6),
+        ],
+      ]),
+    );
+  }
+}
+
+/// How the other member is doing today, as a friendly nudge.
+class _PartnerCard extends StatelessWidget {
+  const _PartnerCard({required this.me, required this.partner});
+  final PersonView me, partner;
+
+  int _done(PersonView p) => p.dueOn(p.today).where((h) => (p.logOn(h, p.today)?.credit ?? 0) > 0).length;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tk;
+    final due = partner.dueOn(partner.today).length;
+    final theirs = _done(partner), mine = _done(me);
+    final mineDue = me.dueOn(me.today).length;
+    final name = partner.profile.name;
+    final streak = partner.streak.current;
+    final what = due == 0
+        ? 'has a free day'
+        : theirs == due
+            ? 'closed the day, $theirs of $due'
+            : 'kept $theirs of $due today';
+    final tail = streak > 1 ? ' and is on a $streak-day streak.' : '.';
+    final nudge = mineDue == 0
+        ? ''
+        : mine == mineDue
+            ? ' You closed yours.'
+            : theirs > mine
+                ? ' Your move.'
+                : mine > theirs
+                    ? " You're ahead today."
+                    : '';
+    return Panel(
+      child: Row(children: [
+        CircleAvatar(
+          radius: 17,
+          backgroundColor: t.accentSoft,
+          child: Text(name.characters.first, style: TextStyle(color: t.accent, fontWeight: FontWeight.w700)),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text.rich(TextSpan(children: [
+            TextSpan(text: name, style: const TextStyle(fontWeight: FontWeight.w700)),
+            TextSpan(text: ' $what$tail'),
+            TextSpan(text: nudge, style: TextStyle(color: t.muted)),
+          ])),
         ),
       ]),
     );

@@ -8,6 +8,7 @@ import '../../state/providers.dart';
 import '../../ui/theme.dart';
 import '../../widgets/common.dart';
 import 'quick_log.dart';
+import '../../ui/haptics.dart';
 
 /// Done / Tiny / Missed with an amount and a remark.
 Future<void> showLogSheet(BuildContext context, Habit h, Day day) =>
@@ -80,13 +81,19 @@ class _LogSheetState extends ConsumerState<_LogSheet> {
             ],
             selected: {status!},
             showSelectedIcon: false,
-            onSelectionChanged: (s) => setState(() => status = s.first),
+            onSelectionChanged: (s) {
+              Haptics.select();
+              setState(() => status = s.first);
+            },
           ),
           if (h.kind == TrackKind.amount && status == LogStatus.done) ...[
             const SizedBox(height: 16),
             Row(children: [
               IconButton.outlined(
-                onPressed: value <= 0 ? null : () => setState(() => value = (value - step).clamp(0, 9999)),
+                onPressed: value <= 0 ? null : () {
+                  Haptics.select();
+                  setState(() => value = (value - step).clamp(0, 9999));
+                },
                 icon: const Icon(Icons.remove),
                 tooltip: 'Less',
               ),
@@ -97,7 +104,10 @@ class _LogSheetState extends ConsumerState<_LogSheet> {
                 ]),
               ),
               IconButton.outlined(
-                onPressed: () => setState(() => value += step),
+                onPressed: () {
+                  Haptics.select();
+                  setState(() => value += step);
+                },
                 icon: const Icon(Icons.add),
                 tooltip: 'More',
               ),
@@ -118,6 +128,7 @@ class _LogSheetState extends ConsumerState<_LogSheet> {
           const SizedBox(height: 16),
           FilledButton(
             onPressed: () async {
+              status == LogStatus.missed ? Haptics.tap() : Haptics.success();
               final before = me.logOn(h, widget.day);
               await ref.read(actionsProvider).log(h, widget.day, status!,
                   value: h.kind == TrackKind.amount && status == LogStatus.done ? value : null,
