@@ -30,6 +30,20 @@ class SettingsScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Settings')),
       body: ListView(
         children: [
+          section('Appearance'),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: SegmentedButton<ThemeMode>(
+              segments: const [
+                ButtonSegment(value: ThemeMode.system, label: Text('System'), icon: Icon(Icons.brightness_auto_outlined)),
+                ButtonSegment(value: ThemeMode.light, label: Text('Light'), icon: Icon(Icons.light_mode_outlined)),
+                ButtonSegment(value: ThemeMode.dark, label: Text('Dark'), icon: Icon(Icons.dark_mode_outlined)),
+              ],
+              selected: {ref.watch(themeModeProvider)},
+              showSelectedIcon: false,
+              onSelectionChanged: (s) => ref.read(themeModeProvider.notifier).set(s.first),
+            ),
+          ),
           section('Day'),
           ListTile(
             title: const Text('Day ends at'),

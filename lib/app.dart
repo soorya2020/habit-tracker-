@@ -54,6 +54,7 @@ class OnePercentApp extends ConsumerWidget {
         debugShowCheckedModeBanner: false,
         theme: buildTheme(Brightness.light),
         darkTheme: buildTheme(Brightness.dark),
+        themeMode: ref.watch(themeModeProvider),
         routerConfig: ref.watch(routerProvider),
       );
 }

@@ -1,6 +1,8 @@
 import 'dart:async';
 
+import 'package:flutter/material.dart' show ThemeMode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/day.dart';
 import '../data/auth.dart';
@@ -13,6 +15,30 @@ final repositoryProvider =
     Provider<Repository>((ref) => throw UnimplementedError());
 final authServiceProvider =
     Provider<AuthService>((ref) => throw UnimplementedError());
+
+/// Set in main(). Holds per-phone preferences such as the theme.
+final prefsProvider =
+    Provider<SharedPreferences>((ref) => throw UnimplementedError());
+
+/// Light, dark or follow the phone. Stored on this phone only.
+class ThemeChoice extends Notifier<ThemeMode> {
+  static const _key = 'ui.theme';
+
+  @override
+  ThemeMode build() {
+    final v = ref.watch(prefsProvider).getString(_key);
+    return ThemeMode.values.firstWhere((m) => m.name == v,
+        orElse: () => ThemeMode.system);
+  }
+
+  void set(ThemeMode m) {
+    ref.read(prefsProvider).setString(_key, m.name);
+    state = m;
+  }
+}
+
+final themeModeProvider =
+    NotifierProvider<ThemeChoice, ThemeMode>(ThemeChoice.new);
 
 final clubProvider = StreamProvider<ClubData>(
     (ref) => ref.watch(repositoryProvider).watch());

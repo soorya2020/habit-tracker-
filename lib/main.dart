@@ -19,6 +19,7 @@ Future<void> main() async {
   }
   runApp(ProviderScope(
     overrides: [
+      prefsProvider.overrideWithValue(prefs),
       repositoryProvider.overrideWithValue(repo),
       authServiceProvider.overrideWithValue(LocalAuth(prefs)),
     ],
