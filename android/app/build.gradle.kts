@@ -31,11 +31,31 @@ android {
         versionName = flutter.versionName
     }
 
+    // One permanent key, so each new APK installs over the last one and
+    // Google sign-in keeps recognising the app (its SHA-1 is registered in
+    // Firebase). The password comes from the ANDROID_KEYSTORE_PASSWORD
+    // secret and CI restores release.jks from ANDROID_KEYSTORE_BASE64;
+    // without them, release builds fall back to the debug key.
+    val keystorePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+        ?.takeIf { file("release.jks").exists() }
+    signingConfigs {
+        create("release") {
+            if (keystorePassword != null) {
+                storeFile = file("release.jks")
+                storePassword = keystorePassword
+                keyAlias = "onepercent"
+                keyPassword = keystorePassword
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (keystorePassword != null) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
         }
     }
 }

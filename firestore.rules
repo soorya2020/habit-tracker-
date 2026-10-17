@@ -1,0 +1,75 @@
+rules_version = '2';
+
+// 1% Club. Members read everything in the club. Each person writes only
+// their own habits, logs and reviews. Admins manage members. The first
+// person to sign in creates the club from the sheet history.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function email() { return request.auth.token.email.lower(); }
+    function initialized() { return exists(/databases/$(database)/documents/meta/club); }
+    function me() { return get(/databases/$(database)/documents/uids/$(request.auth.uid)).data.member; }
+    function isMember() { return signedIn() && exists(/databases/$(database)/documents/uids/$(request.auth.uid)); }
+    function isAdmin() {
+      return isMember() && get(/databases/$(database)/documents/members/$(me())).data.role == 'admin';
+    }
+    // Writes allowed while the first member sets up the club.
+    function bootstrapping() { return signedIn() && !initialized(); }
+    function ownsNew() { return isMember() && request.resource.data.owner == me(); }
+    function ownsOld() { return isMember() && resource.data.owner == me(); }
+
+    match /meta/club {
+      allow read: if signedIn();
+      allow create: if bootstrapping();
+    }
+
+    match /uids/{authUid} {
+      allow read: if signedIn() && request.auth.uid == authUid;
+      // Created on setup, or when an invited member joins.
+      allow create: if signedIn() && request.auth.uid == authUid && (
+        bootstrapping() ||
+        (getAfter(/databases/$(database)/documents/members/$(request.resource.data.member)).data.authUid == request.auth.uid
+          && getAfter(/databases/$(database)/documents/members/$(request.resource.data.member)).data.email == email()));
+    }
+
+    match /members/{id} {
+      // Signed-in people can look for their own invite.
+      allow read: if signedIn();
+      allow create: if bootstrapping() || isAdmin();
+      allow update: if isAdmin()
+        // A member changing their own settings, not their role or identity.
+        || (isMember() && me() == id
+            && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'email', 'authUid', 'uid']))
+        // An invited member joining: only authUid changes, to their own account.
+        || (signedIn() && resource.data.authUid == null && resource.data.email == email()
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['authUid'])
+            && request.resource.data.authUid == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+
+    match /cycles/{id} {
+      allow read: if isMember();
+      allow write: if isMember() || bootstrapping();
+    }
+
+    match /habits/{id} {
+      allow read: if isMember();
+      allow create: if ownsNew() || bootstrapping();
+      allow update: if ownsOld() && ownsNew();
+      allow delete: if ownsOld();
+    }
+
+    match /logs/{id} {
+      allow read: if isMember();
+      allow create: if ownsNew() || bootstrapping();
+      allow update: if ownsOld() && ownsNew();
+      allow delete: if ownsOld();
+    }
+
+    match /reviews/{id} {
+      allow read: if isMember();
+      allow create, update: if ownsNew();
+      allow delete: if ownsOld();
+    }
+  }
+}

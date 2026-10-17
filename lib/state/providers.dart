@@ -8,6 +8,7 @@ import '../core/day.dart';
 import '../data/auth.dart';
 import '../data/repository.dart';
 import '../domain/models.dart';
+import 'account.dart';
 import 'person_view.dart';
 
 /// Set in main() once storage is open.
@@ -40,8 +41,13 @@ class ThemeChoice extends Notifier<ThemeMode> {
 final themeModeProvider =
     NotifierProvider<ThemeChoice, ThemeMode>(ThemeChoice.new);
 
-final clubProvider = StreamProvider<ClubData>(
-    (ref) => ref.watch(repositoryProvider).watch());
+final clubProvider = StreamProvider<ClubData>((ref) {
+  // Re-subscribe when the member changes, so listeners start after sign-in.
+  final uid = ref.watch(sessionProvider);
+  final repo = ref.watch(repositoryProvider);
+  if (ref.watch(cloudModeProvider) && uid == null) return Stream.value(repo.current);
+  return repo.watch();
+});
 
 /// The current minute, so the day rolls over at the cutoff by itself.
 class Clock extends Notifier<DateTime> {
@@ -59,16 +65,28 @@ class Clock extends Notifier<DateTime> {
 
 final clockProvider = NotifierProvider<Clock, DateTime>(Clock.new);
 
+/// The signed-in member's id, or null.
 class Session extends Notifier<String?> {
   @override
-  String? build() => ref.watch(authServiceProvider).uid;
+  String? build() {
+    if (ref.watch(cloudModeProvider)) {
+      final a = ref.watch(accountProvider);
+      return a.stage == Stage.ready ? a.memberId : null;
+    }
+    return ref.watch(authServiceProvider).uid;
+  }
 
+  /// Phone-only mode: pick a member by name.
   Future<void> signInAs(String uid) async {
     await ref.read(authServiceProvider).signInAs(uid);
     state = uid;
   }
 
   Future<void> signOut() async {
+    if (ref.read(cloudModeProvider)) {
+      await ref.read(accountProvider.notifier).signOut();
+      return;
+    }
     await ref.read(authServiceProvider).signOut();
     state = null;
   }
@@ -158,8 +176,13 @@ class ClubActions {
   Future<void> addMember(String name, String email, Role role) {
     final uid =
         '${name.toLowerCase().replaceAll(RegExp('[^a-z0-9]'), '')}_${DateTime.now().millisecondsSinceEpoch % 100000}';
-    return _repo.putProfile(Profile(uid: uid, name: name, email: email, role: role));
+    return _repo.putProfile(
+        Profile(uid: uid, name: name, email: email.trim().toLowerCase(), role: role));
   }
+
+  /// Admin: set the Google email a member signs in with.
+  Future<void> setMemberEmail(Profile p, String email) =>
+      _repo.putProfile(p.copyWith(email: email.trim().toLowerCase()));
 
   String newId() => 'h${DateTime.now().microsecondsSinceEpoch}';
 }

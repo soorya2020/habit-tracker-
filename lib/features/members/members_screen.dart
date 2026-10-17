@@ -29,7 +29,9 @@ class MembersScreen extends ConsumerWidget {
               final v = ref.watch(personProvider(p.uid));
               final last = v.lastLogDay;
               final c = v.cycle;
+              final joined = p.authUid != null;
               return Panel(
+                onTap: joined ? null : () => _setEmail(context, ref, p),
                 child: Row(children: [
                   CircleAvatar(
                     backgroundColor: t.accentSoft,
@@ -48,7 +50,14 @@ class MembersScreen extends ConsumerWidget {
                         ].join(' · '),
                         style: context.tx.bodySmall,
                       ),
-                      if (p.email.isNotEmpty) Text(p.email, style: context.tx.bodySmall),
+                      Text(
+                        joined
+                            ? p.email
+                            : p.email.isEmpty
+                                ? 'Not joined · tap to add their Google email'
+                                : 'Invited as ${p.email} · not joined yet',
+                        style: context.tx.bodySmall?.copyWith(color: joined ? null : t.warn),
+                      ),
                     ]),
                   ),
                   Text(p.role == Role.admin ? 'ADMIN' : 'MEMBER', style: mono(10, p.role == Role.admin ? t.accent : t.muted)),
@@ -69,6 +78,40 @@ class MembersScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _setEmail(BuildContext context, WidgetRef ref, Profile p) async {
+    final email = TextEditingController(text: p.email);
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.fromLTRB(20, 0, 20, 20 + MediaQuery.viewInsetsOf(ctx).bottom),
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text('Invite ${p.name}', style: ctx.tx.headlineSmall),
+          const SizedBox(height: 6),
+          Text('They sign in with this Google account and get ${p.name}\'s habits and history.',
+              style: ctx.tx.bodySmall),
+          const SizedBox(height: 14),
+          TextField(
+            controller: email,
+            autofocus: true,
+            keyboardType: TextInputType.emailAddress,
+            decoration: const InputDecoration(labelText: 'Google email'),
+          ),
+          const SizedBox(height: 16),
+          FilledButton(
+            onPressed: () {
+              if (!email.text.contains('@')) return;
+              ref.read(actionsProvider).setMemberEmail(p, email.text);
+              Navigator.pop(ctx);
+            },
+            child: const Text('Save'),
+          ),
+        ]),
+      ),
+    );
+    email.dispose();
   }
 
   Future<void> _add(BuildContext context, WidgetRef ref) async {

@@ -349,6 +349,7 @@ class Profile {
     required this.uid,
     required this.name,
     this.email = '',
+    this.authUid,
     this.role = Role.member,
     this.cutoffHour = Day.defaultCutoffHour,
     this.quietStart = 23 * 60 + 30,
@@ -363,6 +364,9 @@ class Profile {
   final String uid;
   final String name;
   final String email;
+
+  /// The sign-in account linked to this member, once they have joined.
+  final String? authUid;
   final Role role;
   final int cutoffHour;
 
@@ -402,6 +406,7 @@ class Profile {
         uid: uid,
         name: name ?? this.name,
         email: email ?? this.email,
+        authUid: authUid,
         role: role ?? this.role,
         cutoffHour: cutoffHour ?? this.cutoffHour,
         quietStart: quietStart ?? this.quietStart,
@@ -418,6 +423,7 @@ class Profile {
         'uid': uid,
         'name': name,
         'email': email,
+        'authUid': authUid,
         'role': role.name,
         'cutoffHour': cutoffHour,
         'quietStart': quietStart,
@@ -433,6 +439,7 @@ class Profile {
         uid: j['uid'] as String,
         name: j['name'] as String,
         email: j['email'] as String? ?? '',
+        authUid: j['authUid'] as String?,
         role: Role.values.byName(j['role'] as String? ?? 'member'),
         cutoffHour: j['cutoffHour'] as int? ?? Day.defaultCutoffHour,
         quietStart: j['quietStart'] as int? ?? 23 * 60 + 30,
