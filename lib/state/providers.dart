@@ -8,6 +8,7 @@ import '../core/day.dart';
 import '../data/auth.dart';
 import '../data/repository.dart';
 import '../domain/models.dart';
+import '../domain/schedule.dart';
 import 'account.dart';
 import 'person_view.dart';
 
@@ -158,6 +159,24 @@ class ClubActions {
       _repo.putHabit(h.copyWith(archivedOn: () => _me.today));
 
   Future<void> saveCycle(Cycle c) => _repo.putCycle(c);
+
+  /// Adds the month after the last one.
+  Future<Cycle> addMonth() async {
+    final c = _me.calendar.next;
+    await _repo.putCycle(c);
+    return c;
+  }
+
+  /// Adds empty months up to today, so the plan never runs out.
+  Future<void> ensureMonths() async {
+    final me = _me;
+    var cal = me.calendar;
+    while (cal.cycles.isNotEmpty && cal.cycles.last.index < me.cycleIndex) {
+      final c = cal.next;
+      await _repo.putCycle(c);
+      cal = Calendar([...cal.cycles, c]);
+    }
+  }
 
   Future<void> review(int cycle, ReviewVerdict v, String note) => _repo
       .putReview(Review(owner: _me.uid, cycle: cycle, verdict: v, note: note));

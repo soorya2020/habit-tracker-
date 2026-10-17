@@ -115,6 +115,7 @@ class _ShellState extends ConsumerState<_Shell> with WidgetsBindingObserver {
   Future<void> _resume() async {
     ref.read(clockProvider.notifier).tick();
     ref.invalidate(updateProvider);
+    ref.read(actionsProvider).ensureMonths();
     await ref.read(reminderSyncProvider).drain();
     ref.read(reminderSyncProvider).schedule(ref.read(meProvider));
     WidgetSync.push(ref.read(meProvider));

@@ -65,9 +65,32 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
               controller: strip,
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: me.calendar.cycles.length,
+              itemCount: me.calendar.cycles.length + 1,
               separatorBuilder: (_, _) => const SizedBox(width: 8),
               itemBuilder: (_, i) {
+                if (i == me.calendar.cycles.length) {
+                  return InkWell(
+                    borderRadius: BorderRadius.circular(14),
+                    onTap: () async {
+                      final c = await ref.read(actionsProvider).addMonth();
+                      ref.read(_selectedCycle.notifier).set(c.index);
+                      if (context.mounted) await editMonth(context, ref, c);
+                    },
+                    child: Container(
+                      width: 108,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: t.line),
+                      ),
+                      child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                        Icon(Icons.add, size: 18, color: t.muted),
+                        const SizedBox(width: 4),
+                        Text('Month', style: TextStyle(fontWeight: FontWeight.w600, color: t.muted)),
+                      ]),
+                    ),
+                  );
+                }
                 final c = me.calendar.cycles[i];
                 final on = c.index == sel;
                 final sub = c.index < me.cycleIndex
@@ -137,7 +160,7 @@ class _MonthBody extends ConsumerWidget {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
             Expanded(child: Eyebrow('Month $i · $tag')),
-            TextButton(onPressed: () => _editMonth(context, ref, cycle), child: const Text('Edit')),
+            TextButton(onPressed: () => editMonth(context, ref, cycle), child: const Text('Edit')),
           ]),
           Text(cycle.focus.isEmpty ? 'No focus set yet' : cycle.focus, style: context.tx.titleLarge),
           if (cycle.doneMeans.isNotEmpty) ...[
@@ -196,36 +219,6 @@ class _MonthBody extends ConsumerWidget {
       const SizedBox(height: 8),
       Text('New habits carry over to later months until you set an end.', textAlign: TextAlign.center, style: context.tx.bodySmall),
     ]);
-  }
-
-  Future<void> _editMonth(BuildContext context, WidgetRef ref, Cycle c) async {
-    final focus = TextEditingController(text: c.focus);
-    final done = TextEditingController(text: c.doneMeans);
-    await showModalBottomSheet(
-      useRootNavigator: true,
-      context: context,
-      isScrollControlled: true,
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.fromLTRB(20, 0, 20, 20 + MediaQuery.viewInsetsOf(ctx).bottom),
-        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Text('Month ${c.index} goals', style: ctx.tx.headlineSmall),
-          const SizedBox(height: 14),
-          TextField(controller: focus, decoration: const InputDecoration(labelText: 'Focus')),
-          const SizedBox(height: 10),
-          TextField(controller: done, maxLines: 3, minLines: 2, decoration: const InputDecoration(labelText: 'Done means')),
-          const SizedBox(height: 16),
-          FilledButton(
-            onPressed: () {
-              ref.read(actionsProvider).saveCycle(c.copyWith(focus: focus.text.trim(), doneMeans: done.text.trim()));
-              Navigator.pop(ctx);
-            },
-            child: const Text('Save'),
-          ),
-        ]),
-      ),
-    );
-    focus.dispose();
-    done.dispose();
   }
 
   Future<void> _review(BuildContext context, WidgetRef ref, Cycle c) async {
@@ -323,4 +316,35 @@ class _PlanRow extends StatelessWidget {
       ]),
     );
   }
+}
+
+/// Edits a month's focus and what done means.
+Future<void> editMonth(BuildContext context, WidgetRef ref, Cycle c) async {
+  final focus = TextEditingController(text: c.focus);
+  final done = TextEditingController(text: c.doneMeans);
+  await showModalBottomSheet(
+    useRootNavigator: true,
+    context: context,
+    isScrollControlled: true,
+    builder: (ctx) => Padding(
+      padding: EdgeInsets.fromLTRB(20, 0, 20, 20 + MediaQuery.viewInsetsOf(ctx).bottom),
+      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Text('Month ${c.index} goals', style: ctx.tx.headlineSmall),
+        const SizedBox(height: 14),
+        TextField(controller: focus, decoration: const InputDecoration(labelText: 'Focus')),
+        const SizedBox(height: 10),
+        TextField(controller: done, maxLines: 3, minLines: 2, decoration: const InputDecoration(labelText: 'Done means')),
+        const SizedBox(height: 16),
+        FilledButton(
+          onPressed: () {
+            ref.read(actionsProvider).saveCycle(c.copyWith(focus: focus.text.trim(), doneMeans: done.text.trim()));
+            Navigator.pop(ctx);
+          },
+          child: const Text('Save'),
+        ),
+      ]),
+    ),
+  );
+  focus.dispose();
+  done.dispose();
 }

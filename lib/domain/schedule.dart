@@ -43,6 +43,11 @@ class Calendar {
   }
 
   int lengthOf(Cycle c) => endOf(c).diff(c.start) + 1;
+
+  /// The month after the last one, starting the day after it ends.
+  Cycle get next => cycles.isEmpty
+      ? Cycle(index: 1, start: Day.today())
+      : Cycle(index: cycles.last.index + 1, start: endOf(cycles.last).add(1));
 }
 
 /// Logs grouped by habit and day for quick lookups.
