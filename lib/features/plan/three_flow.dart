@@ -11,8 +11,7 @@ import '../../widgets/common.dart';
 import 'habit_editor.dart';
 import 'plan_screen.dart';
 
-/// Adds a habit to [month], keeping to three: a free slot opens the editor,
-/// a full month asks which habit to swap out first.
+/// Adds a habit to [month]. The editor keeps each day to three habits.
 Future<void> addHabitTo(BuildContext context, WidgetRef ref, int month) async {
   var me = ref.read(meProvider);
   if (me.calendar.cycles.isEmpty) {
@@ -24,24 +23,12 @@ Future<void> addHabitTo(BuildContext context, WidgetRef ref, int month) async {
     me = ref.read(meProvider);
     month = c.index;
   }
-  final now = me.cycleIndex;
-  final habits = ThreeRule.inMonth(me.habits, month);
-  if (habits.length < ThreeRule.max) return showHabitEditor(context, cycle: month);
-  if (ThreeRule.locked(month, now, me.dayInCycle)) {
+  if (ThreeRule.perWeek(me.habits, month) >= 7 * ThreeRule.max) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Month $month has its ${ThreeRule.max} habits and is locked until it ends.')));
+        content: Text('Every day in Month $month already has ${ThreeRule.max} habits. Free up a day first.')));
     return;
   }
-  final out = await _pick(
-    context,
-    title: 'Swap a habit',
-    body: 'Month $month already has ${ThreeRule.max}. Pick one to make room. '
-        'Its history and XP are kept.',
-    habits: habits,
-    many: false,
-  );
-  if (out == null || out.isEmpty || !context.mounted) return;
-  await showHabitEditor(context, cycle: month, replacing: out.first);
+  await showHabitEditor(context, cycle: month);
 }
 
 /// Whether to ask which habits carry into the current month.
@@ -60,7 +47,7 @@ Future<void> pickMonthThree(BuildContext context, WidgetRef ref) async {
   final carried = ThreeRule.inMonth(me.habits, i).where((h) => h.startCycle < i).toList();
   final keep = await _pick(
     context,
-    title: 'Your ${ThreeRule.max} for Month $i',
+    title: 'Your habits for Month $i',
     body: 'Untick a habit to pause it from this month. You can change this until day ${ThreeRule.graceDays}, '
         'then your habits are locked until the month ends.',
     habits: carried,

@@ -70,6 +70,17 @@ class _HabitEditorState extends ConsumerState<HabitEditor> {
     endCycle = h?.endCycle;
     minutes = h?.minutes ?? 20;
     core = h?.core ?? false;
+    // A new habit starts on the days that still have room.
+    if (h == null) days.removeAll(_fullDays(ref.read(meProvider)));
+  }
+
+  /// Weekdays that already hold three habits in the months this one runs.
+  Set<int> _fullDays(PersonView me) {
+    final last = me.calendar.cycles.isEmpty ? startCycle : me.calendar.cycles.last.index;
+    final months = [for (var m = startCycle; m <= (endCycle ?? (last > startCycle ? last : startCycle)); m++) m];
+    final full = ThreeRule.fullDays(me.habits, months, exceptId: widget.habit?.id);
+    // Days this habit already has stay editable.
+    return full.difference(widget.habit?.current.days ?? const {});
   }
 
   @override
@@ -139,7 +150,7 @@ class _HabitEditorState extends ConsumerState<HabitEditor> {
     // Keep to three habits a month, and keep a locked month's habits.
     final swapped = widget.replacing == null ? null : ThreeRule.dropFrom(widget.replacing!, startCycle, me.today);
     final others = [for (final x in me.habits) x.id == swapped?.id ? swapped! : x];
-    final over = ThreeRule.counts(h) ? ThreeRule.overflow(others, h) : null;
+    final over = ThreeRule.problem(others, h);
     final now = me.cycleIndex;
     final dropsNow = old != null &&
         ThreeRule.counts(old) &&
@@ -147,9 +158,7 @@ class _HabitEditorState extends ConsumerState<HabitEditor> {
         !ThreeRule.runsIn(h, now) &&
         ThreeRule.locked(now, now, me.dayInCycle);
     if (over != null || dropsNow) {
-      setState(() => error = over != null
-          ? 'Month $over would have more than ${ThreeRule.max} habits. Swap one out from the Plan tab first.'
-          : 'Your Month $now habits are locked until the month ends.');
+      setState(() => error = over ?? 'Your Month $now habits are locked until the month ends.');
       return;
     }
     if (swapped != null) await actions.saveHabit(swapped);
@@ -170,6 +179,7 @@ class _HabitEditorState extends ConsumerState<HabitEditor> {
     final me = ref.watch(meProvider);
     final cycles = me.calendar.cycles;
     final valid = name.text.trim().isNotEmpty && (mode == HabitMode.maintain || days.isNotEmpty);
+    final full = _fullDays(me);
 
     Widget label(String s) => Padding(
           padding: const EdgeInsets.only(top: 18, bottom: 8),
@@ -240,7 +250,7 @@ class _HabitEditorState extends ConsumerState<HabitEditor> {
             onSelectionChanged: (s) => setState(() => mode = s.first),
           ),
           const SizedBox(height: 10),
-          if (mode == HabitMode.build)
+          if (mode == HabitMode.build) ...[
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -249,11 +259,17 @@ class _HabitEditorState extends ConsumerState<HabitEditor> {
                     label: weekdayLetters[d - 1],
                     semantic: weekdayShort[d - 1],
                     on: days.contains(d),
+                    full: full.contains(d) && !days.contains(d),
                     onTap: () => setState(() => days.contains(d) ? days.remove(d) : days.add(d)),
                   ),
               ],
-            )
-          else
+            ),
+            if (full.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text('${full.map((d) => weekdayShort[d - 1]).join(', ')} already ${full.length == 1 ? 'has' : 'have'} '
+                  '${ThreeRule.max} habits.', style: context.tx.bodySmall),
+            ],
+          ] else
             Row(children: [
               IconButton.outlined(
                 onPressed: perWeek > 1 ? () => setState(() => perWeek--) : null,
@@ -369,20 +385,24 @@ class _HabitEditorState extends ConsumerState<HabitEditor> {
 }
 
 class _DayToggle extends StatelessWidget {
-  const _DayToggle({required this.label, required this.semantic, required this.on, required this.onTap});
+  const _DayToggle({required this.label, required this.semantic, required this.on, required this.onTap, this.full = false});
   final String label, semantic;
   final bool on;
+
+  /// The day already has three habits, so it can't be picked.
+  final bool full;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final t = context.tk;
     return Semantics(
-      label: semantic,
+      label: full ? '$semantic, full' : semantic,
       selected: on,
       button: true,
+      enabled: !full,
       child: InkResponse(
-        onTap: onTap,
+        onTap: full ? null : onTap,
         radius: 24,
         child: Container(
           width: 40,
@@ -393,7 +413,11 @@ class _DayToggle extends StatelessWidget {
             color: on ? t.ink : Colors.transparent,
             border: Border.all(color: on ? t.ink : t.line),
           ),
-          child: Text(label, style: TextStyle(color: on ? t.screen : t.ink, fontWeight: FontWeight.w600)),
+          child: Text(label,
+              style: TextStyle(
+                  color: on ? t.screen : full ? t.muted.withValues(alpha: .4) : t.ink,
+                  fontWeight: FontWeight.w600,
+                  decoration: full ? TextDecoration.lineThrough : null)),
         ),
       ),
     );

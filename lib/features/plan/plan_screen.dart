@@ -220,7 +220,7 @@ class _MonthBody extends ConsumerWidget {
       ),
       const SizedBox(height: 20),
       Row(children: [
-        Expanded(child: Eyebrow('Habits in Month $i · ${habits.length} of ${ThreeRule.max}')),
+        Expanded(child: Eyebrow('Habits in Month $i · ${habits.length}')),
         if (locked && !past)
           Row(mainAxisSize: MainAxisSize.min, children: [
             Icon(Icons.lock_outline, size: 14, color: t.muted),
@@ -233,35 +233,24 @@ class _MonthBody extends ConsumerWidget {
         _PlanRow(habit: h, cycle: i, me: me),
         const SizedBox(height: 8),
       ],
-      if (habits.length > ThreeRule.max) ...[
-        Text('Month $i has ${habits.length} habits. Archive or end some to get back to ${ThreeRule.max}.',
-            style: context.tx.bodySmall?.copyWith(color: t.warn)),
-        const SizedBox(height: 8),
-      ],
       const SizedBox(height: 4),
-      if (past)
-        const SizedBox()
-      else if (habits.length < ThreeRule.max)
+      _WeekSlots(perDay: ThreeRule.perDay(me.habits, i)),
+      const SizedBox(height: 12),
+      if (!past)
         OutlinedButton.icon(
           onPressed: () => addHabitTo(context, ref, i),
           icon: const Icon(Icons.add, size: 18),
-          label: Text('Add a habit · ${ThreeRule.max - habits.length} ${ThreeRule.max - habits.length == 1 ? 'slot' : 'slots'} left'),
-        )
-      else if (!locked)
-        OutlinedButton.icon(
-          onPressed: () => addHabitTo(context, ref, i),
-          icon: const Icon(Icons.swap_horiz, size: 18),
-          label: const Text('Swap a habit'),
+          label: Text('Add a habit to Month $i'),
         ),
       const SizedBox(height: 8),
       Text(
         past
             ? 'This month is done.'
             : locked
-                ? 'Your habits are locked until Month $i ends. You can still fill an empty slot.'
+                ? 'Up to ${ThreeRule.max} habits a day. Your habits are locked until Month $i ends, but you can still add to free days.'
                 : current
-                    ? 'Up to ${ThreeRule.max} habits a month. You can swap until day ${ThreeRule.graceDays}, then they lock.'
-                    : 'Up to ${ThreeRule.max} habits a month. Habits carry over until you set an end.',
+                    ? 'Up to ${ThreeRule.max} habits a day. You can remove habits until day ${ThreeRule.graceDays}, then they lock.'
+                    : 'Up to ${ThreeRule.max} habits a day. Habits carry over until you set an end.',
         textAlign: TextAlign.center,
         style: context.tx.bodySmall,
       ),
@@ -311,6 +300,42 @@ class _MonthBody extends ConsumerWidget {
       ),
     );
     note.dispose();
+  }
+}
+
+/// How many of each weekday's three slots are taken.
+class _WeekSlots extends StatelessWidget {
+  const _WeekSlots({required this.perDay});
+  final Map<int, int> perDay;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tk;
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        for (var d = 1; d <= 7; d++)
+          Semantics(
+            label: '${weekdayShort[d - 1]}: ${perDay[d]} of ${ThreeRule.max}',
+            child: Column(children: [
+              Text(weekdayLetters[d - 1], style: mono(11, t.muted)),
+              const SizedBox(height: 4),
+              Row(children: [
+                for (var k = 0; k < ThreeRule.max; k++)
+                  Container(
+                    width: 7,
+                    height: 7,
+                    margin: const EdgeInsets.symmetric(horizontal: 1.5),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: k < perDay[d]! ? (perDay[d]! > ThreeRule.max ? t.warn : t.accent) : t.heat0,
+                    ),
+                  ),
+              ]),
+            ]),
+          ),
+      ],
+    );
   }
 }
 

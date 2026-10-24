@@ -4,31 +4,40 @@ import 'package:one_percent_club/domain/models.dart';
 import 'package:one_percent_club/domain/schedule.dart';
 import 'package:one_percent_club/domain/three_rule.dart';
 
-Habit h(String id, int start, {int? end}) => Habit(
+Habit h(String id, int start, {int? end, Set<int> days = const {1, 2, 3, 4, 5, 6, 7}, HabitMode mode = HabitMode.build, int perWeek = 3}) => Habit(
       id: id,
       owner: 'me',
       name: id,
       area: Area.mind,
       startCycle: start,
       endCycle: end,
-      rules: [HabitRule(from: Day(2026, 10, 24))],
+      rules: [HabitRule(from: Day(2026, 10, 24), days: days, mode: mode, perWeek: perWeek)],
     );
 
 void main() {
-  test('a fourth habit in a month overflows', () {
-    final xs = [h('a', 3), h('b', 3), h('c', 3)];
-    expect(ThreeRule.overflow(xs, h('d', 3)), 3);
-    expect(ThreeRule.overflow(xs, h('d', 5)), 5);
+  test('a month can hold many habits, but a day only three', () {
+    final xs = [h('a', 1, days: {1, 2}), h('b', 1, days: {1, 3}), h('c', 1, days: {1, 4}), h('d', 1, days: {2, 3})];
+    expect(ThreeRule.problem(xs, h('e', 1, days: {5, 6, 7})), isNull);
+    expect(ThreeRule.problem(xs, h('e', 1, days: {1})), contains('Monday'));
+    expect(ThreeRule.fullDays(xs, [1]), {1});
   });
 
-  test('a free slot or an ended habit makes room', () {
-    expect(ThreeRule.overflow([h('a', 3), h('b', 3)], h('d', 3)), isNull);
-    expect(ThreeRule.overflow([h('a', 3), h('b', 3), h('c', 3, end: 4)], h('d', 5)), isNull);
+  test('a later month counts habits that carry over', () {
+    final xs = [h('a', 1), h('b', 1), h('c', 2, end: 2)];
+    expect(ThreeRule.problem(xs, h('d', 2, days: {1})), contains('Month 2'));
+    expect(ThreeRule.problem(xs, h('d', 3, days: {1})), isNull);
   });
 
-  test('editing a habit in an over-full month still saves', () {
-    final xs = [h('a', 3), h('b', 3), h('c', 3), h('d', 3)];
-    expect(ThreeRule.overflow(xs, xs.last.copyWith(name: 'D')), isNull);
+  test('maintain habits need free slots in the week', () {
+    final xs = [h('a', 1), h('b', 1)];
+    expect(ThreeRule.problem(xs, h('m', 1, mode: HabitMode.maintain, perWeek: 7)), isNull);
+    expect(ThreeRule.problem([...xs, h('c', 1, days: {1, 2})], h('m', 1, mode: HabitMode.maintain, perWeek: 7)),
+        contains('free slots'));
+  });
+
+  test('editing a habit on an over-full day still saves', () {
+    final xs = [h('a', 1), h('b', 1), h('c', 1), h('d', 1)];
+    expect(ThreeRule.problem(xs, xs.last.copyWith(name: 'D')), isNull);
   });
 
   test('the month locks after day 3', () {
