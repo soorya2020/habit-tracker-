@@ -9,11 +9,21 @@ import '../../ui/haptics.dart';
 import '../../ui/theme.dart';
 import '../../widgets/common.dart';
 import 'habit_editor.dart';
+import 'plan_screen.dart';
 
 /// Adds a habit to [month], keeping to three: a free slot opens the editor,
 /// a full month asks which habit to swap out first.
 Future<void> addHabitTo(BuildContext context, WidgetRef ref, int month) async {
-  final me = ref.read(meProvider);
+  var me = ref.read(meProvider);
+  if (me.calendar.cycles.isEmpty) {
+    // Habits run inside months, so the first habit starts the first month.
+    final c = await ref.read(actionsProvider).addMonth();
+    if (!context.mounted) return;
+    await editMonth(context, ref, c);
+    if (!context.mounted) return;
+    me = ref.read(meProvider);
+    month = c.index;
+  }
   final now = me.cycleIndex;
   final habits = ThreeRule.inMonth(me.habits, month);
   if (habits.length < ThreeRule.max) return showHabitEditor(context, cycle: month);

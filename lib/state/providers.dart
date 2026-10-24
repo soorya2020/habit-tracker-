@@ -178,8 +178,10 @@ class ClubActions {
     }
   }
 
-  /// Wipes the signed-in person's habits, logs and reviews.
-  Future<void> startFresh() => _repo.startFresh(_me.profile, _me.today);
+  /// Wipes the signed-in person's habits, logs and reviews. An admin also
+  /// clears every month, so the plan starts from Month 1 again.
+  Future<void> startFresh() =>
+      _repo.startFresh(_me.profile, _me.today, months: _me.profile.isAdmin);
 
   Future<void> review(int cycle, ReviewVerdict v, String note) => _repo
       .putReview(Review(owner: _me.uid, cycle: cycle, verdict: v, note: note));

@@ -8,8 +8,6 @@ class Calendar {
 
   final List<Cycle> cycles;
 
-  static const cycleLength = 30;
-
   Cycle? byIndex(int i) {
     for (final c in cycles) {
       if (c.index == i) return c;
@@ -17,20 +15,23 @@ class Calendar {
     return null;
   }
 
-  /// Last day of cycle [c]: the day before the next one starts.
+  /// Last day of cycle [c]: the day before the next one starts, or the
+  /// last day of the calendar month it starts in.
   Day endOf(Cycle c) {
     final next = byIndex(c.index + 1);
-    return next != null ? next.start.add(-1) : c.start.add(cycleLength - 1);
+    return next != null ? next.start.add(-1) : Day(c.start.year, c.start.month + 1, 0);
   }
 
+  static int _monthNo(Day d) => d.year * 12 + d.month;
+
   /// The cycle containing [d]. Before the first cycle returns 0; after the
-  /// last, keeps counting in 30-day blocks.
+  /// last, keeps counting one per calendar month.
   int indexOf(Day d) {
     if (cycles.isEmpty || d.isBefore(cycles.first.start)) return 0;
     for (final c in cycles.reversed) {
       if (!d.isBefore(c.start)) {
-        final over = d.diff(endOf(c));
-        return over <= 0 ? c.index : c.index + 1 + (over - 1) ~/ cycleLength;
+        final end = endOf(c);
+        return d.isAfter(end) ? c.index + _monthNo(d) - _monthNo(end) : c.index;
       }
     }
     return 0;

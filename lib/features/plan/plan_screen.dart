@@ -126,6 +126,18 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
             Padding(
               padding: const EdgeInsets.all(16),
               child: _MonthBody(me: me, cycle: cycle),
+            )
+          else if (me.calendar.cycles.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Panel(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('No months yet', style: context.tx.titleMedium),
+                  const SizedBox(height: 4),
+                  Text('Tap + Month to start Month 1 today. Give it a focus, then add up to 3 habits.',
+                      style: context.tx.bodyMedium?.copyWith(color: t.muted)),
+                ]),
+              ),
             ),
         ],
       ),

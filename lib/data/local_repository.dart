@@ -113,7 +113,8 @@ class LocalRepository implements Repository {
       _set(_copy(reviews: _upsert(_data.reviews, r, (x) => x.id == r.id)));
 
   @override
-  Future<void> startFresh(Profile p, Day today) => _set(_copy(
+  Future<void> startFresh(Profile p, Day today, {bool months = false}) => _set(_copy(
+        cycles: months ? const [] : null,
         profiles: _upsert(_data.profiles, p.copyWith(freshStart: today), (x) => x.uid == p.uid),
         habits: [for (final x in _data.habits) if (x.owner != p.uid) x],
         logs: [for (final x in _data.logs) if (x.owner != p.uid) x],

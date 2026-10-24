@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:one_percent_club/core/day.dart';
 import 'package:one_percent_club/domain/models.dart';
+import 'package:one_percent_club/domain/schedule.dart';
 import 'package:one_percent_club/domain/three_rule.dart';
 
 Habit h(String id, int start, {int? end}) => Habit(
@@ -41,5 +42,16 @@ void main() {
     final today = Day(2026, 11, 18);
     expect(ThreeRule.dropFrom(h('a', 3), 5, today).endCycle, 4);
     expect(ThreeRule.dropFrom(h('a', 5), 5, today).archived, isTrue);
+  });
+
+  test('months end on the last day of their calendar month', () {
+    final cal = Calendar([Cycle(index: 1, start: Day(2026, 10, 24))]);
+    expect(cal.endOf(cal.cycles.first), Day(2026, 10, 31));
+    expect(cal.next.start, Day(2026, 11, 1));
+    expect(cal.indexOf(Day(2026, 10, 31)), 1);
+    expect(cal.indexOf(Day(2026, 11, 30)), 2);
+    expect(cal.indexOf(Day(2027, 1, 1)), 4);
+    final two = Calendar([...cal.cycles, cal.next]);
+    expect(two.endOf(two.cycles.last), Day(2026, 11, 30));
   });
 }

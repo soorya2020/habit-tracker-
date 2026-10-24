@@ -101,12 +101,13 @@ class FirestoreRepository implements Repository {
   Future<void> putReview(Review r) => _c('reviews').doc(r.id).set(r.toJson());
 
   @override
-  Future<void> startFresh(Profile p, Day today) async {
+  Future<void> startFresh(Profile p, Day today, {bool months = false}) async {
     final refs = <DocumentReference>[];
     for (final c in ['habits', 'logs', 'reviews']) {
       final q = await _c(c).where('owner', isEqualTo: p.uid).get();
       refs.addAll(q.docs.map((d) => d.reference));
     }
+    if (months) refs.addAll((await _c('cycles').get()).docs.map((d) => d.reference));
     // Mark first, so the sheet history can't come back mid-way.
     await _c('members').doc(p.uid).update({'freshStart': today.key});
     for (var i = 0; i < refs.length; i += 400) {

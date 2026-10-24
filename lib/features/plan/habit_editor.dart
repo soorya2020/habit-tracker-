@@ -279,7 +279,11 @@ class _HabitEditorState extends ConsumerState<HabitEditor> {
               child: DropdownButtonFormField<int>(
                 initialValue: startCycle,
                 decoration: const InputDecoration(labelText: 'Starts'),
-                items: [for (final c in cycles) DropdownMenuItem(value: c.index, child: Text('Month ${c.index}'))],
+                items: [
+                  for (final c in cycles) DropdownMenuItem(value: c.index, child: Text('Month ${c.index}')),
+                  if (!cycles.any((c) => c.index == startCycle))
+                    DropdownMenuItem(value: startCycle, child: Text('Month $startCycle')),
+                ],
                 onChanged: (v) => setState(() {
                   startCycle = v!;
                   if (endCycle != null && endCycle! < startCycle) endCycle = startCycle;

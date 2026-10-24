@@ -124,7 +124,9 @@ class SettingsScreen extends ConsumerWidget {
           ListTile(
             leading: Icon(Icons.restart_alt, color: context.tk.miss),
             title: const Text('Start fresh'),
-            subtitle: const Text('Delete your habits and all progress. Months stay.'),
+            subtitle: Text(p.isAdmin
+                ? 'Delete your habits, all progress and every month.'
+                : 'Delete your habits and all progress. Months stay.'),
             onTap: () => _startFresh(context, ref),
           ),
           section('Account'),
@@ -165,7 +167,8 @@ class SettingsScreen extends ConsumerWidget {
     if (!await ask(
         'Start fresh?',
         'This deletes all your habits, every check-off, your month reviews and the history from the sheet. '
-            'XP, level, streak and title go back to zero. Your months and your partner\'s data stay.',
+            'XP, level, streak and title go back to zero. '
+            '${ref.read(meProvider).profile.isAdmin ? 'Every month is removed for everyone too, and you add new ones from Plan with + Month. Your partner keeps their habits and check-offs, but their habits only run in months you add.' : 'Your months and your partner\'s data stay.'}',
         'Continue')) {
       return;
     }
@@ -179,7 +182,7 @@ class SettingsScreen extends ConsumerWidget {
     try {
       await ref.read(actionsProvider).startFresh();
       messenger.showSnackBar(
-          const SnackBar(content: Text('Fresh start. Add up to 3 habits for this month with + Habit.')));
+          const SnackBar(content: Text('Fresh start. Add your first month in Plan, then up to 3 habits.')));
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text('Couldn\'t finish: $e')));
     }
