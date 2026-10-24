@@ -125,7 +125,7 @@ class SettingsScreen extends ConsumerWidget {
             leading: Icon(Icons.restart_alt, color: context.tk.miss),
             title: const Text('Start fresh'),
             subtitle: Text(p.isAdmin
-                ? 'Delete your habits, all progress and every month.'
+                ? 'Delete everyone\'s habits, all progress and every month.'
                 : 'Delete your habits and all progress. Months stay.'),
             onTap: () => _startFresh(context, ref),
           ),
@@ -166,9 +166,11 @@ class SettingsScreen extends ConsumerWidget {
 
     if (!await ask(
         'Start fresh?',
-        'This deletes all your habits, every check-off, your month reviews and the history from the sheet. '
-            'XP, level, streak and title go back to zero. '
-            '${ref.read(meProvider).profile.isAdmin ? 'Every month is removed for everyone too, and you add new ones from Plan with + Month. Your partner keeps their habits and check-offs, but their habits only run in months you add.' : 'Your months and your partner\'s data stay.'}',
+        ref.read(meProvider).profile.isAdmin
+            ? 'This deletes every member\'s habits, check-offs, month reviews and sheet history, and every month. '
+                'Everyone\'s XP, level, streak and title go back to zero. Then add Month 1 from Plan with + Month.'
+            : 'This deletes all your habits, every check-off, your month reviews and the history from the sheet. '
+                'XP, level, streak and title go back to zero. Your months and your partner\'s data stay.',
         'Continue')) {
       return;
     }
@@ -184,7 +186,10 @@ class SettingsScreen extends ConsumerWidget {
       messenger.showSnackBar(
           const SnackBar(content: Text('Fresh start. Add your first month in Plan, then up to 3 habits.')));
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Couldn\'t finish: $e')));
+      messenger.showSnackBar(SnackBar(
+          content: Text('$e'.contains('permission')
+              ? 'Firebase blocked deleting other members\' data. Publish the new Firestore rules, then try again.'
+              : 'Couldn\'t finish: $e')));
     }
   }
 }

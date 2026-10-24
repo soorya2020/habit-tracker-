@@ -162,26 +162,26 @@ class ClubActions {
 
   /// Adds the month after the last one.
   Future<Cycle> addMonth() async {
-    final c = _me.calendar.next;
+    final c = _me.calendar.nextFrom(_me.today);
     await _repo.putCycle(c);
     return c;
   }
 
   /// Adds empty months up to today, so the plan never runs out.
   Future<void> ensureMonths() async {
-    final me = _me;
-    var cal = me.calendar;
-    while (cal.cycles.isNotEmpty && cal.cycles.last.index < me.cycleIndex) {
-      final c = cal.next;
+    final today = _me.today;
+    var cal = _me.calendar;
+    while (cal.cycles.isNotEmpty && cal.indexOf(today) > cal.cycles.last.index) {
+      final c = cal.nextFrom(today);
       await _repo.putCycle(c);
       cal = Calendar([...cal.cycles, c]);
     }
   }
 
-  /// Wipes the signed-in person's habits, logs and reviews. An admin also
-  /// clears every month, so the plan starts from Month 1 again.
+  /// Wipes the signed-in person's habits, logs and reviews. An admin wipes
+  /// everyone's, and every month, so the whole club starts from Month 1.
   Future<void> startFresh() =>
-      _repo.startFresh(_me.profile, _me.today, months: _me.profile.isAdmin);
+      _repo.startFresh(_me.profile, _me.today, everyone: _me.profile.isAdmin);
 
   Future<void> review(int cycle, ReviewVerdict v, String note) => _repo
       .putReview(Review(owner: _me.uid, cycle: cycle, verdict: v, note: note));

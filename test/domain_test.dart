@@ -234,7 +234,7 @@ void main() {
   });
 
   test('the next month starts the day after the last one ends', () {
-    final n = _cal.next;
+    final n = _cal.nextFrom(_cal.cycles.last.start);
     expect(n.index, 9);
     expect(n.start, _cal.endOf(_cal.cycles.last).add(1));
     expect(Calendar([..._cal.cycles, n]).indexOf(n.start), 9);

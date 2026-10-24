@@ -74,7 +74,7 @@ abstract class Repository {
   Future<void> putReview(Review r);
 
   /// Deletes every habit, log and review of [p] and marks the day they
-  /// started fresh. With [months], also deletes every month in the club.
-  /// Other members' habits and logs are untouched.
-  Future<void> startFresh(Profile p, Day today, {bool months = false});
+  /// started fresh. With [everyone], wipes every member's habits, logs and
+  /// reviews and every month too, so the whole club starts over.
+  Future<void> startFresh(Profile p, Day today, {bool everyone = false});
 }

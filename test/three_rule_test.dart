@@ -47,11 +47,12 @@ void main() {
   test('months end on the last day of their calendar month', () {
     final cal = Calendar([Cycle(index: 1, start: Day(2026, 10, 24))]);
     expect(cal.endOf(cal.cycles.first), Day(2026, 10, 31));
-    expect(cal.next.start, Day(2026, 11, 1));
+    expect(cal.nextFrom(Day(2026, 10, 24)).start, Day(2026, 11, 1));
+    expect(cal.nextFrom(Day(2026, 12, 5)).start, Day(2026, 12, 5));
     expect(cal.indexOf(Day(2026, 10, 31)), 1);
     expect(cal.indexOf(Day(2026, 11, 30)), 2);
     expect(cal.indexOf(Day(2027, 1, 1)), 4);
-    final two = Calendar([...cal.cycles, cal.next]);
+    final two = Calendar([...cal.cycles, cal.nextFrom(Day(2026, 10, 24))]);
     expect(two.endOf(two.cycles.last), Day(2026, 11, 30));
   });
 }

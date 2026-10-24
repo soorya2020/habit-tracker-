@@ -56,20 +56,22 @@ service cloud.firestore {
       allow read: if isMember();
       allow create: if ownsNew() || bootstrapping();
       allow update: if ownsOld() && ownsNew();
-      allow delete: if ownsOld();
+      // Admins can wipe the club with Start fresh.
+      allow delete: if ownsOld() || isAdmin();
     }
 
     match /logs/{id} {
       allow read: if isMember();
       allow create: if ownsNew() || bootstrapping();
       allow update: if ownsOld() && ownsNew();
-      allow delete: if ownsOld();
+      // Admins can wipe the club with Start fresh.
+      allow delete: if ownsOld() || isAdmin();
     }
 
     match /reviews/{id} {
       allow read: if isMember();
       allow create, update: if ownsNew();
-      allow delete: if ownsOld();
+      allow delete: if ownsOld() || isAdmin();
     }
   }
 }
