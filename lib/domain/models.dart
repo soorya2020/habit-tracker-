@@ -359,6 +359,7 @@ class Profile {
     this.resting = const {},
     this.comebackUntil,
     this.comebackDeclined,
+    this.freshStart,
   });
 
   final String uid;
@@ -387,6 +388,10 @@ class Profile {
   /// The day the comeback offer was turned down, so it stays hidden.
   final Day? comebackDeclined;
 
+  /// The day this member wiped their progress to start over. The sheet
+  /// history is never imported again after it.
+  final Day? freshStart;
+
   bool get isAdmin => role == Role.admin;
 
   Profile copyWith({
@@ -401,6 +406,7 @@ class Profile {
     Set<Area>? resting,
     Day? Function()? comebackUntil,
     Day? comebackDeclined,
+    Day? freshStart,
   }) =>
       Profile(
         uid: uid,
@@ -417,6 +423,7 @@ class Profile {
         comebackUntil:
             comebackUntil != null ? comebackUntil() : this.comebackUntil,
         comebackDeclined: comebackDeclined ?? this.comebackDeclined,
+        freshStart: freshStart ?? this.freshStart,
       );
 
   Map<String, dynamic> toJson() => {
@@ -433,6 +440,7 @@ class Profile {
         'resting': resting.map((a) => a.name).toList(),
         'comebackUntil': comebackUntil?.key,
         'comebackDeclined': comebackDeclined?.key,
+        'freshStart': freshStart?.key,
       };
 
   factory Profile.fromJson(Map<String, dynamic> j) => Profile(
@@ -456,5 +464,6 @@ class Profile {
         comebackDeclined: j['comebackDeclined'] == null
             ? null
             : Day.parse(j['comebackDeclined'] as String),
+        freshStart: j['freshStart'] == null ? null : Day.parse(j['freshStart'] as String),
       );
 }

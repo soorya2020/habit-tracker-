@@ -120,6 +120,13 @@ class SettingsScreen extends ConsumerWidget {
               onTap: s != null && s.available ? Updates.download : () => ref.invalidate(updateProvider),
             );
           }),
+          section('Start fresh'),
+          ListTile(
+            leading: Icon(Icons.restart_alt, color: context.tk.miss),
+            title: const Text('Start fresh'),
+            subtitle: const Text('Delete your habits and all progress. Months stay.'),
+            onTap: () => _startFresh(context, ref),
+          ),
           section('Account'),
           ListTile(
             title: Text(p.name),
@@ -134,5 +141,47 @@ class SettingsScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _startFresh(BuildContext context, WidgetRef ref) async {
+    Future<bool> ask(String title, String body, String yes) async =>
+        await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Text(title),
+            content: Text(body),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                style: TextButton.styleFrom(foregroundColor: ctx.tk.miss),
+                child: Text(yes),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+
+    if (!await ask(
+        'Start fresh?',
+        'This deletes all your habits, every check-off, your month reviews and the history from the sheet. '
+            'XP, level, streak and title go back to zero. Your months and your partner\'s data stay.',
+        'Continue')) {
+      return;
+    }
+    if (!context.mounted ||
+        !await ask('Are you sure?', 'This can\'t be undone.', 'Delete everything')) {
+      return;
+    }
+    if (!context.mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(const SnackBar(content: Text('Clearing your progress…')));
+    try {
+      await ref.read(actionsProvider).startFresh();
+      messenger.showSnackBar(
+          const SnackBar(content: Text('Fresh start. Add up to 3 habits for this month with + Habit.')));
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('Couldn\'t finish: $e')));
+    }
   }
 }

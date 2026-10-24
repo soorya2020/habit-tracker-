@@ -1,3 +1,4 @@
+import '../core/day.dart';
 import '../domain/models.dart';
 
 /// Everything the club shares: members, months, habits, logs and reviews.
@@ -71,4 +72,8 @@ abstract class Repository {
   Future<void> putLog(LogEntry l);
   Future<void> removeLog(String owner, String logId);
   Future<void> putReview(Review r);
+
+  /// Deletes every habit, log and review of [p] and marks the day they
+  /// started fresh. Months and other members are untouched.
+  Future<void> startFresh(Profile p, Day today);
 }

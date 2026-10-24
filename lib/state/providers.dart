@@ -178,6 +178,9 @@ class ClubActions {
     }
   }
 
+  /// Wipes the signed-in person's habits, logs and reviews.
+  Future<void> startFresh() => _repo.startFresh(_me.profile, _me.today);
+
   Future<void> review(int cycle, ReviewVerdict v, String note) => _repo
       .putReview(Review(owner: _me.uid, cycle: cycle, verdict: v, note: note));
 

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/day.dart';
 import '../domain/models.dart';
 import 'repository.dart';
 import 'seed.dart';
@@ -99,6 +100,24 @@ class FirestoreRepository implements Repository {
   @override
   Future<void> putReview(Review r) => _c('reviews').doc(r.id).set(r.toJson());
 
+  @override
+  Future<void> startFresh(Profile p, Day today) async {
+    final refs = <DocumentReference>[];
+    for (final c in ['habits', 'logs', 'reviews']) {
+      final q = await _c(c).where('owner', isEqualTo: p.uid).get();
+      refs.addAll(q.docs.map((d) => d.reference));
+    }
+    // Mark first, so the sheet history can't come back mid-way.
+    await _c('members').doc(p.uid).update({'freshStart': today.key});
+    for (var i = 0; i < refs.length; i += 400) {
+      final batch = _db.batch();
+      for (final r in refs.skip(i).take(400)) {
+        batch.delete(r);
+      }
+      await batch.commit();
+    }
+  }
+
   // ---- Joining ----
 
   /// The member linked to a sign-in account, if any.
@@ -155,6 +174,11 @@ class FirestoreRepository implements Repository {
     final prefs = await SharedPreferences.getInstance();
     final key = 'import.sheet.$memberId';
     if ((prefs.getInt(key) ?? 0) >= sheetVersion) return;
+    final member = await _c('members').doc(memberId).get();
+    if (member.data()?['freshStart'] != null) {
+      await prefs.setInt(key, sheetVersion);
+      return;
+    }
     final batch = _db.batch();
     for (final h in SheetImport.habits(memberId)) {
       if (h.rules.length < 2 || !h.rules.first.from.isBefore(SheetImport.handover)) continue;

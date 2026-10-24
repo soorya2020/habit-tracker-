@@ -11,7 +11,7 @@ import 'features/log/log_sheet.dart';
 import 'features/today/celebration.dart';
 import 'features/insights/insights_screen.dart';
 import 'features/members/members_screen.dart';
-import 'features/plan/habit_editor.dart';
+import 'features/plan/three_flow.dart';
 import 'features/plan/plan_screen.dart';
 import 'features/settings/settings_screen.dart';
 import 'features/today/today_screen.dart';
@@ -140,7 +140,7 @@ class _ShellState extends ConsumerState<_Shell> with WidgetsBindingObserver {
               onPressed: () {
                 Haptics.tap();
                 final c = ref.read(meProvider).cycleIndex;
-                showHabitEditor(context, cycle: c < 1 ? 1 : c);
+                addHabitTo(context, ref, c < 1 ? 1 : c);
               },
               backgroundColor: t.ink,
               foregroundColor: t.screen,

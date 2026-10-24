@@ -5,11 +5,13 @@ import 'package:intl/intl.dart';
 import '../../domain/load.dart';
 import '../../domain/models.dart';
 import '../../domain/scoring.dart';
+import '../../domain/three_rule.dart';
 import '../../state/person_view.dart';
 import '../../state/providers.dart';
 import '../../ui/theme.dart';
 import '../../widgets/common.dart';
 import 'habit_editor.dart';
+import 'three_flow.dart';
 
 final _selectedCycle = NotifierProvider<_Sel, int?>(_Sel.new);
 
@@ -154,6 +156,7 @@ class _MonthBody extends ConsumerWidget {
     final load = me.loadOf(cycle);
     final review = me.reviewOf(i);
     final canReview = (past || (current && me.dayInCycle >= len - 5)) && review == null;
+    final locked = ThreeRule.locked(i, me.cycleIndex, me.dayInCycle);
 
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       Panel(
@@ -204,20 +207,52 @@ class _MonthBody extends ConsumerWidget {
         ]),
       ),
       const SizedBox(height: 20),
-      Eyebrow('Habits in Month $i · ${habits.length}'),
+      Row(children: [
+        Expanded(child: Eyebrow('Habits in Month $i · ${habits.length} of ${ThreeRule.max}')),
+        if (locked && !past)
+          Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.lock_outline, size: 14, color: t.muted),
+            const SizedBox(width: 4),
+            Text('Locked', style: mono(11, t.muted)),
+          ]),
+      ]),
       const SizedBox(height: 8),
       for (final h in habits) ...[
         _PlanRow(habit: h, cycle: i, me: me),
         const SizedBox(height: 8),
       ],
+      if (habits.length > ThreeRule.max) ...[
+        Text('Month $i has ${habits.length} habits. Archive or end some to get back to ${ThreeRule.max}.',
+            style: context.tx.bodySmall?.copyWith(color: t.warn)),
+        const SizedBox(height: 8),
+      ],
       const SizedBox(height: 4),
-      OutlinedButton.icon(
-        onPressed: () => showHabitEditor(context, cycle: i),
-        icon: const Icon(Icons.add, size: 18),
-        label: Text('Add a habit from Month $i'),
-      ),
+      if (past)
+        const SizedBox()
+      else if (habits.length < ThreeRule.max)
+        OutlinedButton.icon(
+          onPressed: () => addHabitTo(context, ref, i),
+          icon: const Icon(Icons.add, size: 18),
+          label: Text('Add a habit · ${ThreeRule.max - habits.length} ${ThreeRule.max - habits.length == 1 ? 'slot' : 'slots'} left'),
+        )
+      else if (!locked)
+        OutlinedButton.icon(
+          onPressed: () => addHabitTo(context, ref, i),
+          icon: const Icon(Icons.swap_horiz, size: 18),
+          label: const Text('Swap a habit'),
+        ),
       const SizedBox(height: 8),
-      Text('New habits carry over to later months until you set an end.', textAlign: TextAlign.center, style: context.tx.bodySmall),
+      Text(
+        past
+            ? 'This month is done.'
+            : locked
+                ? 'Your habits are locked until Month $i ends. You can still fill an empty slot.'
+                : current
+                    ? 'Up to ${ThreeRule.max} habits a month. You can swap until day ${ThreeRule.graceDays}, then they lock.'
+                    : 'Up to ${ThreeRule.max} habits a month. Habits carry over until you set an end.',
+        textAlign: TextAlign.center,
+        style: context.tx.bodySmall,
+      ),
     ]);
   }
 

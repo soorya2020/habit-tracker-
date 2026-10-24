@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/day.dart';
 import '../domain/models.dart';
 import 'repository.dart';
 import 'seed.dart';
@@ -110,4 +111,12 @@ class LocalRepository implements Repository {
   @override
   Future<void> putReview(Review r) =>
       _set(_copy(reviews: _upsert(_data.reviews, r, (x) => x.id == r.id)));
+
+  @override
+  Future<void> startFresh(Profile p, Day today) => _set(_copy(
+        profiles: _upsert(_data.profiles, p.copyWith(freshStart: today), (x) => x.uid == p.uid),
+        habits: [for (final x in _data.habits) if (x.owner != p.uid) x],
+        logs: [for (final x in _data.logs) if (x.owner != p.uid) x],
+        reviews: [for (final x in _data.reviews) if (x.owner != p.uid) x],
+      ));
 }

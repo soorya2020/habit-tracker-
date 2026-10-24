@@ -2,26 +2,31 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/models.dart';
+import '../../domain/three_rule.dart';
 import '../../services/reminder_sync.dart';
+import '../../state/person_view.dart';
 import '../../state/providers.dart';
 import '../../ui/theme.dart';
 import '../../widgets/common.dart';
 
 /// Create a habit, or edit one. Schedule changes take effect from today,
 /// so past days and streaks keep the old schedule.
-Future<void> showHabitEditor(BuildContext context, {Habit? habit, int cycle = 1}) =>
+///
+/// With [replacing], saving the new habit swaps that one out of [cycle].
+Future<void> showHabitEditor(BuildContext context, {Habit? habit, int cycle = 1, Habit? replacing}) =>
     showModalBottomSheet(
       useRootNavigator: true,
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      builder: (_) => HabitEditor(habit: habit, cycle: cycle),
+      builder: (_) => HabitEditor(habit: habit, cycle: cycle, replacing: replacing),
     );
 
 class HabitEditor extends ConsumerStatefulWidget {
-  const HabitEditor({super.key, this.habit, this.cycle = 1});
+  const HabitEditor({super.key, this.habit, this.cycle = 1, this.replacing});
   final Habit? habit;
   final int cycle;
+  final Habit? replacing;
 
   @override
   ConsumerState<HabitEditor> createState() => _HabitEditorState();
@@ -42,6 +47,7 @@ class _HabitEditorState extends ConsumerState<HabitEditor> {
   int? endCycle;
   late int minutes;
   late bool core;
+  String? error;
 
   bool get editing => widget.habit != null;
 
@@ -130,9 +136,32 @@ class _HabitEditorState extends ConsumerState<HabitEditor> {
         h = h.withRule(rule);
       }
     }
+    // Keep to three habits a month, and keep a locked month's habits.
+    final swapped = widget.replacing == null ? null : ThreeRule.dropFrom(widget.replacing!, startCycle, me.today);
+    final others = [for (final x in me.habits) x.id == swapped?.id ? swapped! : x];
+    final over = ThreeRule.counts(h) ? ThreeRule.overflow(others, h) : null;
+    final now = me.cycleIndex;
+    final dropsNow = old != null &&
+        ThreeRule.counts(old) &&
+        ThreeRule.runsIn(old, now) &&
+        !ThreeRule.runsIn(h, now) &&
+        ThreeRule.locked(now, now, me.dayInCycle);
+    if (over != null || dropsNow) {
+      setState(() => error = over != null
+          ? 'Month $over would have more than ${ThreeRule.max} habits. Swap one out from the Plan tab first.'
+          : 'Your Month $now habits are locked until the month ends.');
+      return;
+    }
+    if (swapped != null) await actions.saveHabit(swapped);
     await actions.saveHabit(h);
     await ref.read(reminderSyncProvider).ensurePermission();
     if (mounted) Navigator.pop(context);
+  }
+
+  /// A habit running this month can't be archived once the month is locked.
+  bool archiveLocked(PersonView me) {
+    final h = widget.habit!, now = me.cycleIndex;
+    return ThreeRule.counts(h) && ThreeRule.runsIn(h, now) && ThreeRule.locked(now, now, me.dayInCycle);
   }
 
   @override
@@ -153,7 +182,8 @@ class _HabitEditorState extends ConsumerState<HabitEditor> {
         shrinkWrap: true,
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
         children: [
-          Text(editing ? 'Edit habit' : 'New habit', style: context.tx.headlineSmall),
+          Text(editing ? 'Edit habit' : widget.replacing != null ? 'Swap for ${widget.replacing!.name}' : 'New habit',
+              style: context.tx.headlineSmall),
           const SizedBox(height: 14),
           TextField(
             controller: name,
@@ -308,16 +338,24 @@ class _HabitEditorState extends ConsumerState<HabitEditor> {
             onChanged: (v) => setState(() => core = v),
           ),
           const SizedBox(height: 12),
-          FilledButton(onPressed: valid ? _save : null, child: Text(editing ? 'Save' : 'Add habit')),
+          if (error != null) ...[
+            Text(error!, style: context.tx.bodyMedium?.copyWith(color: t.miss)),
+            const SizedBox(height: 10),
+          ],
+          FilledButton(
+              onPressed: valid ? _save : null,
+              child: Text(editing ? 'Save' : widget.replacing != null ? 'Swap in' : 'Add habit')),
           if (editing) ...[
             const SizedBox(height: 8),
             TextButton(
-              onPressed: () async {
+              onPressed: archiveLocked(me) ? null : () async {
                 await ref.read(actionsProvider).archive(widget.habit!);
                 if (context.mounted) Navigator.pop(context);
               },
               style: TextButton.styleFrom(foregroundColor: t.miss),
-              child: const Text('Archive (history is kept)'),
+              child: Text(archiveLocked(me)
+                  ? 'Locked until Month ${me.cycleIndex} ends'
+                  : 'Archive (history is kept)'),
             ),
           ],
         ],

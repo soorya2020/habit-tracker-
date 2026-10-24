@@ -16,6 +16,7 @@ import '../../ui/theme.dart';
 import '../../widgets/common.dart';
 import '../log/log_sheet.dart';
 import '../log/quick_log.dart';
+import '../plan/three_flow.dart';
 
 class TodayScreen extends ConsumerWidget {
   const TodayScreen({super.key});
@@ -139,6 +140,24 @@ class TodayScreen extends ConsumerWidget {
         title: "Don't miss twice",
         body: 'Yesterday slipped, and your ${me.streak.current}-day streak is shielded for one day. '
             'Keep today, even with tiny versions, and it carries on.',
+      ));
+    }
+    if (needsMonthPick(me, ref.watch(prefsProvider).getBool(monthPickKey(me)) ?? false)) {
+      out.add(Callout(
+        title: 'Month ${me.cycleIndex} has started',
+        body: 'Keep your habits from last month, or pause some to make room. '
+            'You can change them until day 3, then they lock for the month.',
+        tone: t.accent,
+        actions: [
+          FilledButton(onPressed: () => pickMonthThree(context, ref).then((_) => ref.invalidate(meProvider)), child: const Text('Choose my 3')),
+          OutlinedButton(
+            onPressed: () async {
+              await ref.read(prefsProvider).setBool(monthPickKey(me), true);
+              ref.invalidate(meProvider);
+            },
+            child: const Text('Keep them all'),
+          ),
+        ],
       ));
     }
     if (me.yesterdayOpen && !me.offerComeback) {
@@ -296,7 +315,7 @@ class _Empty extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           me.activeHabits.isEmpty
-              ? 'Add your first habit to start. Keep it small enough to do on a bad day.'
+              ? 'Pick up to 3 habits for this month with + Habit. Keep them small enough to do on a bad day.'
               : upcoming.isNotEmpty
                   ? 'Nothing is owed today. Next up: ${upcoming.first.name} in Month ${upcoming.first.startCycle}.'
                   : 'Nothing is owed today. Rest counts too.',
